@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G.M. Enterprises - Invoice App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box !important; }
+        
+        .tally-border { border: 1px solid #000000 !important; }
+        .tally-border-b { border-bottom: 1px solid #000000 !important; }
+        .tally-border-t { border-top: 1px solid #000000 !important; }
+        .tally-border-r { border-right: 1px solid #000000 !important; }
+        .tally-border-l { border-left: 1px solid #000000 !important; }
+
+        /* ══════════════════════════════════════════════════════════ */
+        /* PRINT ENGINE FROM V2 (Strict Isolation)                    */
+        /* ══════════════════════════════════════════════════════════ */
+        @media print {
+            .print-hidden, .print\:hidden, #toast-container, #form-panel, #login-overlay, #mobile-tab-bar, #dashboard-overlay, #reports-overlay { 
+                display: none !important; 
+            }
+            body { 
+                background: white !important; 
+                padding: 0 !important; 
+                margin: 0 !important; 
+                overflow: visible !important;
+                height: auto !important;
+                display: block !important;
+            }
+            #app-workspace,
+            #app-workspace > div {
+                display: block !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+            #preview-panel {
+                display: block !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: white !important;
+            }
+            #preview-panel > div {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            #printable-invoice {
+                visibility: visible !important;
+                position: relative !important;
+                width: 190mm !important;
+                max-width: 190mm !important;
+                height: 277mm !important;
+                min-height: 277mm !important;
+                max-height: 277mm !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                background: white !important;
+                page-break-inside: avoid !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            @page { 
+                size: A4 portrait;
+                margin: 10mm;
+            }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-scheme: light !important;
+            }
+            #items-table-container {
+                flex-grow: 1 !important;
+                height: auto !important;
+            }
+        }
+
+        /* UI Scrollbars */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+        /* ══════════════════════════════════════════════════════════ */
+        /* DASHBOARD STYLES FROM V1                                   */
+        /* ══════════════════════════════════════════════════════════ */
+        #dashboard-overlay { display: none; }
+        #dashboard-overlay.open { display: flex; }
+        #reports-overlay { display: none; }
+        #reports-overlay.open { display: flex; }
+        .dash-stat-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.1rem 1.25rem; }
+        .dash-stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin-bottom: 4px; }
+        .dash-stat-value { font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+        .dash-stat-sub { font-size: 11px; color: #94a3b8; margin-top: 3px; font-weight: 500; }
+        .dash-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+        .dash-table td { font-size: 12px; padding: 9px 10px; border-bottom: 1px solid #f8fafc; color: #334155; vertical-align: middle; }
+        .dash-table tr:last-child td { border-bottom: none; }
+        .dash-table tr:hover td { background: #f8fafc; }
+        .dash-badge { display:inline-flex; align-items:center; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+        .dash-badge.blue  { background:#dbeafe; color:#1d4ed8; }
+        .dash-skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
+        @keyframes shimmer { to { background-position: -200% 0; } }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans h-screen flex flex-col overflow-hidden text-slate-900 antialiased">
+
+    <div id="login-overlay" class="fixed inset-0 z-[9999] bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 flex items-center justify-center">
+        <div class="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none"></div>
+        <div class="bg-white rounded-2xl p-10 w-full max-w-sm shadow-[0_30px_60px_rgba(0,0,0,0.45)] relative z-10 mx-4">
+            <div class="text-center mb-8">
+                <div class="text-4xl leading-none mb-2">🏢</div>
+                <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">G.M. Enterprises</h1>
+                <p class="text-[11px] font-semibold text-slate-400 mt-1 uppercase tracking-wider">Invoice Management System</p>
+            </div>
+
+            <div id="login-error" class="hidden bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 text-sm font-medium mb-4"></div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Username</label>
+                    <input type="text" id="login-username" class="w-full border-2 border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 text-slate-800 font-medium" autocomplete="username" placeholder="Enter username" onkeydown="if(event.key==='Enter') document.getElementById('login-password').focus()" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Password</label>
+                    <div class="relative">
+                        <input type="password" id="login-password" class="w-full border-2 border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 text-slate-800 font-medium pr-10" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter') doLogin()" />
+                        <button type="button" onclick="toggleLoginPwd()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm">👁</button>
+                    </div>
+                </div>
+                <button id="login-btn" onclick="doLogin()" class="w-full bg-blue-700 hover:bg-blue-800 active:scale-[0.98] text-white font-bold py-2.5 rounded-lg text-sm transition-all mt-2">
+                    Sign In
+                </button>
+            </div>
+            <p class="text-center text-[10px] text-slate-300 mt-8 font-medium">Developed by Itransform Technology</p>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <div id="app-workspace" class="hidden h-full w-full flex-col overflow-hidden">
+
+        <div id="mobile-tab-bar" class="flex lg:hidden border-b border-slate-200 bg-white shrink-0">
+            <button id="tab-form" onclick="switchMobileTab('form')"
+                class="flex-1 py-3 text-sm font-bold border-b-2 border-blue-600 text-blue-600 flex items-center justify-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit Form
+            </button>
+            <button id="tab-preview" onclick="switchMobileTab('preview')"
+                class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 flex items-center justify-center gap-2 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Preview
+            </button>
+        </div>
+
+        <div class="flex flex-1 flex-col lg:flex-row overflow-hidden h-full w-full min-h-0">
+
+            <div id="form-panel" class="w-full lg:w-1/2 p-4 sm:p-6 overflow-y-auto custom-scrollbar print-hidden border-b lg:border-b-0 lg:border-r border-slate-200 h-full bg-slate-50/50">
+                
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-tight text-slate-800">G.M. Enterprises</h1>
+                        <p class="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            Logged In: <span id="logged-user-name" class="font-bold text-slate-800"></span>
+                        </p>
+                    </div>
+                    <div class="flex gap-2.5 w-full sm:w-auto">
+                        <button onclick="handleSaveToSheets()" id="btn-save" class="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 active:scale-[0.98] transition-all font-semibold text-sm shadow-sm shadow-emerald-600/10">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                            <span id="btn-save-text">Save to Sheets</span>
+                        </button>
+                        <button onclick="handlePrint()" class="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-[0.98] transition-all font-semibold text-sm shadow-sm shadow-blue-600/10">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                            Print / PDF
+                        </button>
+                        <button onclick="openDashboard()" title="Dashboard" class="px-3 py-2.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 active:scale-[0.98] transition-all flex items-center gap-1.5 font-semibold text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            <span class="hidden sm:inline">Dashboard</span>
+                        </button>
+                        <button onclick="openReports()" title="Reports" class="px-3 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center gap-1.5 font-semibold text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                            <span class="hidden sm:inline">Reports</span>
+                        </button>
+                        <button onclick="doLogout()" class="px-3 py-2.5 bg-slate-200 text-slate-700 rounded-lg hover:bg-rose-100 hover:text-rose-700 active:scale-[0.98] transition-all" title="Logout">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                            <h2 class="font-bold text-base text-slate-800">Company Details</h2>
+                            <span class="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold tracking-wider uppercase border border-slate-200">Hardcoded</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="col-span-2">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Company Name</label>
+                                <input type="text" value="G.M.ENTERPRISES" readonly class="w-full border border-slate-200 p-2.5 rounded-lg mt-1.5 bg-slate-50 text-slate-500 font-semibold cursor-not-allowed text-sm" />
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Address</label>
+                                <textarea readonly class="w-full border border-slate-200 p-2.5 rounded-lg mt-1.5 bg-slate-50 text-slate-500 font-semibold cursor-not-allowed text-sm resize-none" rows="2">Byculla(W)</textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">GSTIN</label>
+                                <input type="text" value="27AAAAA00000001" readonly class="w-full border border-slate-200 p-2.5 rounded-lg mt-1.5 bg-slate-50 text-slate-500 font-mono text-sm cursor-not-allowed" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">State</label>
+                                <input type="text" value="Maharashtra" readonly class="w-full border border-slate-200 p-2.5 rounded-lg mt-1.5 bg-slate-50 text-slate-500 font-semibold cursor-not-allowed text-sm" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Phone No.</label>
+                                <input type="text" value="+91 00000 00000" readonly class="w-full border border-slate-200 p-2.5 rounded-lg mt-1.5 bg-slate-50 text-slate-500 font-semibold cursor-not-allowed text-sm" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Email</label>
+                                <input type="text" value="info@gmenterprises.com" readonly class="w-full border border-slate-200 p-2.5 rounded-lg mt-1.5 bg-slate-50 text-slate-500 font-semibold cursor-not-allowed text-sm" />
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Website</label>
+                                <input type="text" value="www.gmenterprises.com" readonly class="w-full border border-slate-200 p-2.5 rounded-lg mt-1.5 bg-slate-50 text-slate-500 font-semibold cursor-not-allowed text-sm" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                            <h2 class="font-bold text-base border-b border-slate-100 pb-3 mb-4 text-slate-800">Invoice Info</h2>
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="flex justify-between items-center">
+                                        <label class="block text-sm font-medium text-slate-600">Invoice No. <span class="text-rose-500 font-bold">*</span></label>
+                                        <div id="inv-no-status" class="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                                            <svg id="inv-no-spinner" class="animate-spin hidden text-blue-500" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                            <span id="inv-no-status-text"></span>
+                                        </div>
+                                    </div>
+                                    <div class="relative mt-1.5 flex items-center">
+                                        <input type="text" id="inv-no" oninput="updateInvoiceMeta('invoiceNo', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none font-bold text-slate-700 pr-24 text-sm shadow-sm" placeholder="Fetching…" />
+                                        <button onclick="fetchNextInvoiceNo()" title="Re-fetch next invoice number from Google Sheets" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs px-2.5 py-1.5 bg-slate-50 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded-md border border-slate-200 transition-colors font-semibold flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.65"></path></svg>
+                                            Refresh
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-600">Date</label>
+                                    <input type="date" id="inv-date" onchange="updateInvoiceMeta('date', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg mt-1.5 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-sm text-slate-700 shadow-sm" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-600">Challan No.</label>
+                                    <input type="text" id="inv-challan" oninput="updateInvoiceMeta('challanNo', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg mt-1.5 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none font-mono text-sm text-slate-700 shadow-sm" placeholder="e.g. CH/001" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                            <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                                <h2 class="font-bold text-base text-slate-800">Buyer (Billed To)</h2>
+                                <button onclick="handleSaveBuyer()" class="flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md border border-emerald-200 hover:bg-emerald-100 font-bold transition-colors shadow-sm" title="Upload / Sync this buyer to Google Sheet Database">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                    Save Buyer
+                                </button>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="relative">
+                                    <label class="block text-sm font-medium text-slate-600">Buyer Name</label>
+                                    <div class="relative mt-1.5">
+                                        <input type="text" id="buyer-name" oninput="onBuyerNameChange(this.value)" autocomplete="off" class="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none pr-8 text-sm text-slate-700 shadow-sm" placeholder="Search or add buyer..." />
+                                        <svg id="buyer-search-spinner" class="animate-spin hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                    </div>
+                                    <div id="buyer-suggestions" class="hidden absolute z-50 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl mt-1 max-h-48 overflow-y-auto divide-y divide-slate-100 overflow-hidden"></div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-600">Address</label>
+                                    <textarea id="buyer-address" oninput="updateBuyer('address', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg mt-1.5 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-sm text-slate-700 shadow-sm resize-none" rows="2"></textarea>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-600">GSTIN</label>
+                                        <input type="text" id="buyer-gstin" oninput="updateBuyer('gstin', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg mt-1.5 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none font-mono text-sm text-slate-700 shadow-sm" placeholder="27BBBBB0000B1Z5" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-600">State</label>
+                                        <input type="text" id="buyer-state" oninput="updateBuyer('state', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg mt-1.5 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-sm text-slate-700 shadow-sm" placeholder="Maharashtra" />
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-600">Phone No.</label>
+                                        <input type="tel" id="buyer-phone" oninput="updateBuyer('phone', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg mt-1.5 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-sm text-slate-700 shadow-sm" placeholder="9876543210" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-600">Email ID</label>
+                                        <input type="email" id="buyer-email" oninput="updateBuyer('email', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg mt-1.5 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-sm text-slate-700 shadow-sm" placeholder="buyer@example.com" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                            <h2 class="font-bold text-base text-slate-800">Items</h2>
+                            <button onclick="handleAddItem()" class="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-100 border border-blue-200 font-bold transition-colors shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Add Item
+                            </button>
+                        </div>
+                        
+                        <div id="items-list-form" class="space-y-4">
+                            </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 mb-12">
+                        <h2 class="font-bold text-base border-b border-slate-100 pb-3 mb-4 text-slate-800">Taxes (%)</h2>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600">CGST %</label>
+                                <input type="number" id="tax-cgst" oninput="updateTaxes('cgst', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg mt-1.5 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-sm text-slate-700 shadow-sm" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600">SGST %</label>
+                                <input type="number" id="tax-sgst" oninput="updateTaxes('sgst', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg mt-1.5 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-sm text-slate-700 shadow-sm" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600">IGST %</label>
+                                <input type="number" id="tax-igst" oninput="updateTaxes('igst', this.value)" class="w-full border border-slate-300 p-2.5 rounded-lg mt-1.5 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-sm text-slate-700 shadow-sm" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="preview-panel" class="w-full lg:w-1/2 p-4 sm:p-6 bg-slate-200 justify-center items-start overflow-y-auto h-full hidden lg:flex">
+                <div class="w-full overflow-x-auto flex lg:justify-center min-h-full py-2">
+                    
+                    <div id="printable-invoice" class="bg-white shadow-xl p-8 w-[210mm] min-h-[297mm] text-[11px] leading-tight text-black font-sans tally-border box-border relative shrink-0 my-auto flex flex-col">
+                        
+                        <div class="text-center font-bold text-lg py-1 tally-border-b underline tracking-wider bg-white">TAX INVOICE</div>
+
+                        <div class="flex tally-border-b" style="min-height:135px;">
+                            <div class="w-1/2 tally-border-r p-2 flex flex-col justify-between">
+                                <div>
+                                    <div class="font-bold text-sm uppercase">G.M.ENTERPRISES</div>
+                                    <div class="mt-1 font-medium">Byculla(W)</div>
+                                    <div class="mt-1 font-medium text-[9px]"><span class="font-bold">Ph:</span> +91 00000 00000 <span class="mx-1">|</span> <span class="font-bold">Email:</span> info@gmenterprises.com</div>
+                                    <div class="font-medium text-[9px]"><span class="font-bold">Web:</span> www.gmenterprises.com</div>
+                                    <div class="mt-1"><span class="font-bold">GSTIN/UIN: </span> 27AAAAA00000001</div>
+                                    <div><span class="font-bold">State Name: </span> Maharashtra, <span class="font-bold">Code:</span> 27</div>
+                                </div>
+                            </div>
+                            <div class="w-1/2 flex flex-col">
+                                <div class="flex tally-border-b flex-1">
+                                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Invoice No.</div><div id="prev-inv-no" class="font-bold text-xs"></div></div>
+                                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Dated</div><div id="prev-inv-date" class="font-semibold"></div></div>
+                                </div>
+                                <div class="flex tally-border-b flex-1">
+                                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Delivery Note</div><div>-</div></div>
+                                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Mode/Terms of Payment</div><div>-</div></div>
+                                </div>
+                                <div class="flex flex-1">
+                                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Supplier's Ref.</div><div>-</div></div>
+                                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Other Reference(s)</div><div>-</div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex tally-border-b" style="min-height:115px;">
+                            <div class="w-1/2 tally-border-r p-2 flex flex-col justify-between">
+                                <div>
+                                    <div class="font-bold text-[9px] uppercase tracking-wide text-gray-500">Buyer (Bill to)</div>
+                                    <div id="prev-buyer-name" class="font-bold text-sm uppercase mt-1"></div>
+                                    <div id="prev-buyer-address" class="mt-1"></div>
+                                    <div class="mt-2"><span class="font-bold">GSTIN/UIN: </span> <span id="prev-buyer-gstin"></span></div>
+                                    <div><span class="font-bold">State Name: </span> Maharashtra, <span class="font-bold">Code:</span> 27</div>
+                                    <div id="prev-buyer-contact-row" class="mt-1 hidden">
+                                        <span id="prev-buyer-phone-wrap"><span class="font-bold">Ph: </span><span id="prev-buyer-phone"></span></span>
+                                        <span id="prev-buyer-email-wrap" class="ml-3 hidden"><span class="font-bold">Email: </span><span id="prev-buyer-email"></span></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="w-1/2 flex flex-col">
+                                <div class="flex tally-border-b flex-1">
+                                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Challan No.</div><div id="prev-challan-no" class="font-semibold">-</div></div>
+                                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Dated</div><div>-</div></div>
+                                </div>
+                                <div class="flex tally-border-b flex-1">
+                                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Dispatch Document No.</div><div>-</div></div>
+                                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Delivery Note Date</div><div>-</div></div>
+                                </div>
+                                <div class="flex flex-1">
+                                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Dispatched through</div><div>-</div></div>
+                                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Destination</div><div>-</div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="items-table-container" class="tally-border-b flex-grow flex flex-col relative" style="min-height:280px;">
+                            <div class="absolute top-0 bottom-0 left-0 w-full flex pointer-events-none">
+                                <div class="w-[8%] tally-border-r h-full"></div>
+                                <div class="w-[42%] tally-border-r h-full"></div>
+                                <div class="w-[12%] tally-border-r h-full"></div>
+                                <div class="w-[10%] tally-border-r h-full"></div>
+                                <div class="w-[10%] tally-border-r h-full"></div>
+                                <div class="w-[6%] tally-border-r h-full"></div>
+                                <div class="w-[12%] h-full"></div>
+                            </div>
+                            <div class="w-full flex tally-border-b font-bold text-center z-10 bg-white">
+                                <div class="w-[8%] tally-border-r p-1">Sl No.</div>
+                                <div class="w-[42%] tally-border-r p-1 text-left pl-2">Description of Goods</div>
+                                <div class="w-[12%] tally-border-r p-1">HSN/SAC</div>
+                                <div class="w-[10%] tally-border-r p-1">Quantity</div>
+                                <div class="w-[10%] tally-border-r p-1">Rate</div>
+                                <div class="w-[6%] tally-border-r p-1">per</div>
+                                <div class="w-[12%] p-1 text-right pr-2">Amount</div>
+                            </div>
+                            <div id="prev-items-body" class="w-full flex-1 z-10 pt-1 overflow-hidden"></div>
+                        </div>
+
+                        <div class="flex tally-border-b font-bold bg-white">
+                            <div class="w-[8%] p-1"></div>
+                            <div class="w-[42%] p-1 text-right pr-2">Total</div>
+                            <div class="w-[12%] p-1"></div>
+                            <div class="w-[10%] p-1"></div>
+                            <div class="w-[10%] p-1"></div>
+                            <div class="w-[6%] p-1"></div>
+                            <div id="prev-grand-total" class="w-[12%] p-1 text-right pr-2 tally-border-l"></div>
+                        </div>
+
+                        <div class="tally-border-b p-2 bg-white">
+                            <div class="font-bold text-[10px] uppercase text-gray-500">Amount Chargeable (in words)</div>
+                            <div id="prev-amount-words" class="font-bold text-[11px] mt-1"></div>
+                        </div>
+
+                        <div class="tally-border-b flex">
+                            <div class="w-1/2 tally-border-r p-2">
+                                <div class="font-bold underline mb-1">Declaration</div>
+                                <div class="text-justify text-[9px] leading-tight text-gray-700">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</div>
+                            </div>
+                            <div class="w-1/2 p-2 relative flex flex-col justify-between">
+                                <div class="text-right font-bold text-[10px]">for G.M.ENTERPRISES</div>
+                                <div class="text-right font-bold mt-14 pb-1">Authorised Signatory</div>
+                            </div>
+                        </div>
+
+                        <div class="text-center py-1 text-[9px] font-semibold text-gray-600">SUBJECT TO MAHARASHTRA JURISDICTION</div>
+                        <div class="text-center pb-1 text-[9px] text-gray-500">This is a Computer Generated Invoice</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard-overlay" class="fixed inset-0 z-[999] bg-slate-100 flex-col overflow-hidden">
+        <div class="bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold text-slate-800">Invoice Dashboard</h2>
+                    <p class="text-[11px] text-slate-400 font-medium">G.M. Enterprises · Live from Google Sheets</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="loadDashboard()" id="dash-refresh-btn" title="Refresh data" class="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-all">
+                    <svg id="dash-refresh-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.65"></path></svg>
+                    Refresh
+                </button>
+                <button onclick="closeDashboard()" class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    Close
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6">
+            <div class="max-w-6xl mx-auto space-y-5">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-label">Total Invoices</div>
+                        <div id="kpi-total-invoices" class="dash-stat-value">—</div>
+                        <div class="dash-stat-sub">All time</div>
+                    </div>
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-label">Total Revenue</div>
+                        <div id="kpi-total-revenue" class="dash-stat-value">—</div>
+                        <div class="dash-stat-sub">Grand totals sum</div>
+                    </div>
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-label">This Month</div>
+                        <div id="kpi-this-month" class="dash-stat-value">—</div>
+                        <div class="dash-stat-sub" id="kpi-this-month-label">Invoices</div>
+                    </div>
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-label">Avg Invoice Value</div>
+                        <div id="kpi-avg-value" class="dash-stat-value">—</div>
+                        <div class="dash-stat-sub">Per invoice</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <h3 class="font-bold text-sm text-slate-800">Monthly Revenue</h3>
+                                <p class="text-xs text-slate-400 mt-0.5">Last 6 months · Grand total</p>
+                            </div>
+                            <div id="chart-loading" class="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+                                <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                Loading…
+                            </div>
+                        </div>
+                        <div style="position:relative;height:220px;">
+                            <canvas id="dash-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-slate-200 p-5">
+                        <h3 class="font-bold text-sm text-slate-800 mb-1">Top Buyers</h3>
+                        <p class="text-xs text-slate-400 mb-4">By invoice count</p>
+                        <div id="top-buyers-list" class="space-y-2.5">
+                            <div class="dash-skeleton h-9 w-full"></div>
+                            <div class="dash-skeleton h-9 w-full"></div>
+                            <div class="dash-skeleton h-9 w-4/5"></div>
+                            <div class="dash-skeleton h-9 w-3/4"></div>
+                            <div class="dash-skeleton h-9 w-2/3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-800">Recent Invoices</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">Latest 15 entries from Google Sheets</p>
+                        </div>
+                        <span id="recent-count-badge" class="text-[10px] bg-violet-100 text-violet-700 font-bold px-2.5 py-1 rounded-full"></span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="dash-table w-full">
+                            <thead>
+                                <tr>
+                                    <th>Invoice No.</th>
+                                    <th>Date</th>
+                                    <th>Buyer</th>
+                                    <th>Items</th>
+                                    <th class="text-right pr-5">Grand Total</th>
+                                    <th>Saved By</th>
+                                    <th>Challan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-invoices-body">
+                                <tr><td colspan="7" class="text-center py-8 text-slate-400 text-xs">
+                                    <svg class="animate-spin inline mr-2" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                    Fetching invoices from Google Sheets…
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 p-5">
+                    <h3 class="font-bold text-sm text-slate-800 mb-4">Financial Year Breakdown</h3>
+                    <div id="fy-breakdown" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                        <div class="dash-skeleton h-16 w-full rounded-lg"></div>
+                        <div class="dash-skeleton h-16 w-full rounded-lg"></div>
+                        <div class="dash-skeleton h-16 w-full rounded-lg"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- REPORTS OVERLAY                                            -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <div id="reports-overlay" class="fixed inset-0 z-[999] bg-slate-100 flex-col overflow-hidden">
+        <!-- Header -->
+        <div class="bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold text-slate-800">Reports</h2>
+                    <p class="text-[11px] text-slate-400 font-medium">G.M. Enterprises · Live from Google Sheets</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="loadReports()" id="rep-refresh-btn" title="Refresh data" class="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-all">
+                    <svg id="rep-refresh-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.65"></path></svg>
+                    Refresh
+                </button>
+                <button onclick="closeReports()" class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    Close
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab bar -->
+        <div class="bg-white border-b border-slate-200 px-5 flex gap-1 shrink-0">
+            <button onclick="switchReportTab('reprint')" id="rep-tab-reprint" class="rep-tab-btn px-4 py-3 text-xs font-bold border-b-2 border-teal-600 text-teal-700 transition-colors">
+                🖨️ Reprint Invoice
+            </button>
+            <button onclick="switchReportTab('month')" id="rep-tab-month" class="rep-tab-btn px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-colors">
+                📅 Month-wise
+            </button>
+            <button onclick="switchReportTab('year')" id="rep-tab-year" class="rep-tab-btn px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-colors">
+                📆 Year-wise
+            </button>
+            <button onclick="switchReportTab('buyer')" id="rep-tab-buyer" class="rep-tab-btn px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-colors">
+                👤 Buyer-wise
+            </button>
+            <button onclick="switchReportTab('all')" id="rep-tab-all" class="rep-tab-btn px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-colors">
+                📋 All Invoices
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6">
+            <div class="max-w-6xl mx-auto space-y-5">
+
+                <!-- ── REPRINT TAB ── -->
+                <div id="rep-panel-reprint" class="rep-panel">
+                    <div class="bg-white rounded-xl border border-slate-200 p-6 max-w-lg mx-auto">
+                        <h3 class="font-bold text-base text-slate-800 mb-1">Reprint Invoice by Invoice No.</h3>
+                        <p class="text-xs text-slate-400 mb-5">Enter the exact Invoice Number to fetch and reprint it.</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="reprint-inv-input" placeholder="e.g. INV/26-27/001" class="flex-1 border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 font-mono shadow-sm" onkeydown="if(event.key==='Enter') fetchInvoiceForReprint()" />
+                            <button onclick="fetchInvoiceForReprint()" class="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold text-sm transition-all flex items-center gap-2">
+                                <svg id="reprint-fetch-spinner" class="hidden animate-spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                Fetch
+                            </button>
+                        </div>
+                        <div id="reprint-error" class="hidden mt-3 bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 text-xs font-medium"></div>
+                    </div>
+
+                    <!-- Fetched invoice preview card -->
+                    <div id="reprint-preview-card" class="hidden bg-white rounded-xl border border-slate-200 overflow-hidden max-w-2xl mx-auto">
+                        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                            <div>
+                                <span class="font-mono font-extrabold text-teal-700 text-base" id="rp-inv-no"></span>
+                                <span class="ml-3 text-xs text-slate-400" id="rp-inv-date"></span>
+                            </div>
+                            <button onclick="triggerReprintWindow()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                Print Invoice
+                            </button>
+                        </div>
+                        <div class="p-5 grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Buyer</div>
+                                <div class="font-bold text-slate-800" id="rp-buyer-name"></div>
+                                <div class="text-xs text-slate-500 mt-0.5" id="rp-buyer-address"></div>
+                                <div class="text-xs text-slate-500 font-mono mt-0.5" id="rp-buyer-gstin"></div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Totals</div>
+                                <div class="text-xs text-slate-500">Subtotal: <span class="font-semibold text-slate-700" id="rp-subtotal"></span></div>
+                                <div class="text-xs text-slate-500">Tax: <span class="font-semibold text-slate-700" id="rp-tax"></span></div>
+                                <div class="text-sm font-extrabold text-slate-800 mt-1">Grand Total: <span id="rp-grand"></span></div>
+                            </div>
+                        </div>
+                        <div class="px-5 pb-4">
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Items</div>
+                            <table class="dash-table w-full border border-slate-100 rounded-lg overflow-hidden">
+                                <thead><tr>
+                                    <th>#</th><th>Description</th><th>HSN</th><th>Qty</th><th>Rate</th><th class="text-right pr-4">Amount</th>
+                                </tr></thead>
+                                <tbody id="rp-items-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Hidden printable invoice for reprint -->
+                    <div id="reprint-print-area" class="hidden">
+                        <div id="reprint-invoice-html"></div>
+                    </div>
+                </div>
+
+                <!-- ── MONTH-WISE TAB ── -->
+                <div id="rep-panel-month" class="rep-panel hidden">
+                    <div class="bg-white rounded-xl border border-slate-200 p-5">
+                        <div class="flex flex-wrap gap-3 items-end mb-5">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Month</label>
+                                <input type="month" id="filter-month" class="border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 shadow-sm" />
+                            </div>
+                            <button onclick="applyMonthFilter()" class="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold text-sm transition-all">Apply Filter</button>
+                            <button onclick="clearMonthFilter()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-sm transition-all">Clear</button>
+                        </div>
+                        <div id="month-summary-cards" class="grid grid-cols-3 gap-3 mb-5 hidden">
+                            <div class="dash-stat-card"><div class="dash-stat-label">Invoices</div><div id="ms-count" class="dash-stat-value">—</div></div>
+                            <div class="dash-stat-card"><div class="dash-stat-label">Revenue</div><div id="ms-revenue" class="dash-stat-value">—</div></div>
+                            <div class="dash-stat-card"><div class="dash-stat-label">Avg Invoice</div><div id="ms-avg" class="dash-stat-value">—</div></div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="dash-table w-full">
+                                <thead><tr>
+                                    <th>Invoice No.</th><th>Date</th><th>Buyer</th><th>Challan</th>
+                                    <th class="text-right pr-5">Grand Total</th><th>Saved By</th>
+                                </tr></thead>
+                                <tbody id="month-report-body">
+                                    <tr><td colspan="6" class="text-center py-10 text-slate-400 text-xs">Select a month and click Apply Filter</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── YEAR-WISE TAB ── -->
+                <div id="rep-panel-year" class="rep-panel hidden">
+                    <div class="bg-white rounded-xl border border-slate-200 p-5">
+                        <div class="flex flex-wrap gap-3 items-end mb-5">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Financial Year</label>
+                                <select id="filter-fy" class="border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 shadow-sm bg-white">
+                                    <option value="">-- Select FY --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Calendar Year</label>
+                                <select id="filter-cy" class="border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 shadow-sm bg-white">
+                                    <option value="">-- Select Year --</option>
+                                </select>
+                            </div>
+                            <button onclick="applyYearFilter()" class="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold text-sm transition-all">Apply Filter</button>
+                            <button onclick="clearYearFilter()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-sm transition-all">Clear</button>
+                        </div>
+                        <div id="year-summary-cards" class="grid grid-cols-3 gap-3 mb-5 hidden">
+                            <div class="dash-stat-card"><div class="dash-stat-label">Invoices</div><div id="ys-count" class="dash-stat-value">—</div></div>
+                            <div class="dash-stat-card"><div class="dash-stat-label">Revenue</div><div id="ys-revenue" class="dash-stat-value">—</div></div>
+                            <div class="dash-stat-card"><div class="dash-stat-label">Avg Invoice</div><div id="ys-avg" class="dash-stat-value">—</div></div>
+                        </div>
+                        <!-- Monthly breakdown chart inside year report -->
+                        <div id="year-chart-wrap" class="hidden bg-slate-50 rounded-xl p-4 mb-5 border border-slate-100">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Month-by-Month Breakdown</h4>
+                            <div style="position:relative;height:200px;"><canvas id="year-month-chart"></canvas></div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="dash-table w-full">
+                                <thead><tr>
+                                    <th>Invoice No.</th><th>Date</th><th>Buyer</th><th>Challan</th>
+                                    <th class="text-right pr-5">Grand Total</th><th>Saved By</th>
+                                </tr></thead>
+                                <tbody id="year-report-body">
+                                    <tr><td colspan="6" class="text-center py-10 text-slate-400 text-xs">Select a year and click Apply Filter</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── BUYER-WISE TAB ── -->
+                <div id="rep-panel-buyer" class="rep-panel hidden">
+                    <div class="bg-white rounded-xl border border-slate-200 p-5">
+                        <div class="flex flex-wrap gap-3 items-end mb-5">
+                            <div class="flex-1 min-w-[200px]">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Buyer Name</label>
+                                <div class="relative">
+                                    <input type="text" id="filter-buyer" placeholder="Search buyer name…" class="w-full border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 shadow-sm" oninput="onBuyerFilterInput(this.value)" />
+                                    <div id="buyer-filter-suggestions" class="hidden absolute z-50 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl mt-1 max-h-40 overflow-y-auto divide-y divide-slate-100"></div>
+                                </div>
+                            </div>
+                            <button onclick="applyBuyerFilter()" class="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold text-sm transition-all">Apply Filter</button>
+                            <button onclick="clearBuyerFilter()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-sm transition-all">Clear</button>
+                        </div>
+                        <div id="buyer-summary-cards" class="grid grid-cols-3 gap-3 mb-5 hidden">
+                            <div class="dash-stat-card"><div class="dash-stat-label">Invoices</div><div id="bs-count" class="dash-stat-value">—</div></div>
+                            <div class="dash-stat-card"><div class="dash-stat-label">Revenue</div><div id="bs-revenue" class="dash-stat-value">—</div></div>
+                            <div class="dash-stat-card"><div class="dash-stat-label">Avg Invoice</div><div id="bs-avg" class="dash-stat-value">—</div></div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="dash-table w-full">
+                                <thead><tr>
+                                    <th>Invoice No.</th><th>Date</th><th>Buyer</th><th>Challan</th>
+                                    <th class="text-right pr-5">Grand Total</th><th>Saved By</th>
+                                </tr></thead>
+                                <tbody id="buyer-report-body">
+                                    <tr><td colspan="6" class="text-center py-10 text-slate-400 text-xs">Search for a buyer and click Apply Filter</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── ALL INVOICES TAB ── -->
+                <div id="rep-panel-all" class="rep-panel hidden">
+                    <div class="bg-white rounded-xl border border-slate-200 p-5">
+                        <div class="flex flex-wrap gap-3 items-end mb-5">
+                            <div class="flex-1 min-w-[180px]">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Search</label>
+                                <input type="text" id="filter-all-search" placeholder="Invoice no., buyer name…" oninput="applyAllFilter()" class="w-full border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 shadow-sm" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">From Date</label>
+                                <input type="date" id="filter-all-from" oninput="applyAllFilter()" class="border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 shadow-sm" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">To Date</label>
+                                <input type="date" id="filter-all-to" oninput="applyAllFilter()" class="border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 shadow-sm" />
+                            </div>
+                            <button onclick="clearAllFilter()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-sm transition-all">Clear</button>
+                        </div>
+                        <div id="all-summary-row" class="text-xs text-slate-500 font-medium mb-3" ></div>
+                        <div class="overflow-x-auto">
+                            <table class="dash-table w-full">
+                                <thead><tr>
+                                    <th>Invoice No.</th><th>Date</th><th>Buyer</th><th>Challan</th>
+                                    <th class="text-right pr-5">Grand Total</th><th>Saved By</th>
+                                </tr></thead>
+                                <tbody id="all-report-body">
+                                    <tr><td colspan="6" class="text-center py-8 text-slate-400 text-xs">
+                                        <svg class="animate-spin inline mr-2" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                        Loading invoices…
+                                    </td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <script>
+        // ══════════════════════════════════════════════════════════
+        //  APP URL (V1 SCRIPT LINK)
+        // ══════════════════════════════════════════════════════════
+        const googleScriptUrl = "https://script.google.com/macros/s/AKfycbxE_8SSl4LyGF2y0daXfSAwhDT1JZWbK_DgRzEcbWcpErrhpFSaYUayGVrGYpEi-nd5xA/exec";
+
+        const state = {
+            company: { name: 'G.M.ENTERPRISES', address: 'Byculla(W)', gstin: '27AAAAA00000001', state: 'Maharashtra', stateCode: '27', phone: '+91 00000 00000', email: 'info@gmenterprises.com', website: 'www.gmenterprises.com' },
+            buyer: { name: '', address: '', gstin: '', state: 'Maharashtra', stateCode: '27', phone: '', email: '' },
+            invoiceMeta: { invoiceNo: 'INV/26-27/001', date: new Date().toISOString().split('T')[0], challanNo: '' },
+            savedBuyers: [],
+            items: [
+                { id: Date.now(), desc: 'Consulting Services', hsn: '9983', qty: 1, rate: 5000, per: 'Nos', amount: 5000 }
+            ],
+            taxes: { cgst: 9, sgst: 9, igst: 0 },
+            isSaving: false,
+            buyerSearchTimeout: null,
+            isSavedToSheets: false
+        };
+
+        // ══════════════════════════════════════════════════════════
+        //  LOGIN SYSTEM
+        // ══════════════════════════════════════════════════════════
+
+        (function initLoginCheck() {
+            if (sessionStorage.getItem('gme_auth') === 'true') {
+                document.getElementById('login-overlay').classList.add('hidden');
+                document.getElementById('app-workspace').classList.remove('hidden');
+                document.getElementById('app-workspace').classList.add('flex');
+                document.getElementById('logged-user-name').innerText = sessionStorage.getItem('gme_display') || sessionStorage.getItem('gme_username') || 'Admin';
+            }
+        })();
+
+        function toggleLoginPwd() {
+            var f = document.getElementById('login-password');
+            f.type = (f.type === 'password') ? 'text' : 'password';
+        }
+
+        async function doLogin() {
+            var username = (document.getElementById('login-username').value || '').trim();
+            var password = (document.getElementById('login-password').value || '').trim();
+            var errBox   = document.getElementById('login-error');
+            var btn      = document.getElementById('login-btn');
+
+            errBox.style.display = 'none';
+            if (!username || !password) {
+                errBox.textContent   = 'Please enter both username and password.';
+                errBox.style.display = 'block';
+                return;
+            }
+
+            btn.disabled    = true;
+            btn.textContent = 'Signing in…';
+
+            try {
+                var url = googleScriptUrl
+                    + '?action=checkLogin'
+                    + '&username=' + encodeURIComponent(username)
+                    + '&password=' + encodeURIComponent(password);
+
+                var res  = await fetch(url);
+                var data = await res.json();
+
+                if (data.success) {
+                    sessionStorage.setItem('gme_auth', 'true');
+                    sessionStorage.setItem('gme_username', data.username);
+                    sessionStorage.setItem('gme_display', data.displayName || data.username);
+                    
+                    document.getElementById('login-overlay').classList.add('hidden');
+                    document.getElementById('app-workspace').classList.remove('hidden');
+                    document.getElementById('app-workspace').classList.add('flex');
+                    document.getElementById('logged-user-name').innerText = data.displayName || data.username;
+
+                    fetchNextInvoiceNo();
+                } else {
+                    errBox.textContent   = data.message || 'Invalid username or password.';
+                    errBox.style.display = 'block';
+                    document.getElementById('login-password').value = '';
+                    document.getElementById('login-password').focus();
+                }
+            } catch (err) {
+                errBox.textContent   = 'Connection failed. Check your internet or Apps Script URL.';
+                errBox.style.display = 'block';
+            } finally {
+                btn.disabled    = false;
+                btn.textContent = 'Sign In';
+            }
+        }
+
+        function doLogout() {
+            sessionStorage.removeItem('gme_auth');
+            sessionStorage.removeItem('gme_username');
+            sessionStorage.removeItem('gme_display');
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+            document.getElementById('login-error').style.display = 'none';
+            
+            document.getElementById('app-workspace').classList.add('hidden');
+            document.getElementById('app-workspace').classList.remove('flex');
+            document.getElementById('login-overlay').classList.remove('hidden');
+            document.getElementById('login-username').focus();
+        }
+
+        // ══════════════════════════════════════════════════════════
+        //  MOBILE TAB SWITCHER
+        // ══════════════════════════════════════════════════════════
+
+        function switchMobileTab(targetPanel) {
+            const formEl    = document.getElementById('form-panel');
+            const prevEl    = document.getElementById('preview-panel');
+            const tabFormBtn = document.getElementById('tab-form');
+            const tabPrevBtn = document.getElementById('tab-preview');
+
+            if (targetPanel === 'form') {
+                formEl.classList.remove('hidden');
+                prevEl.classList.add('hidden');
+                prevEl.classList.remove('flex');
+
+                tabFormBtn.classList.add('border-blue-600', 'text-blue-600');
+                tabFormBtn.classList.remove('border-transparent', 'text-slate-500');
+                tabPrevBtn.classList.remove('border-blue-600', 'text-blue-600');
+                tabPrevBtn.classList.add('border-transparent', 'text-slate-500');
+            } else {
+                formEl.classList.add('hidden');
+                prevEl.classList.remove('hidden');
+                prevEl.classList.add('flex');
+
+                tabPrevBtn.classList.add('border-blue-600', 'text-blue-600');
+                tabPrevBtn.classList.remove('border-transparent', 'text-slate-500');
+                tabFormBtn.classList.remove('border-blue-600', 'text-blue-600');
+                tabFormBtn.classList.add('border-transparent', 'text-slate-500');
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════
+        //  INVOICE LOGIC (NUMBER TO WORDS, METRICS, ETC)
+        // ══════════════════════════════════════════════════════════
+
+        function numberToWords(price) {
+            const sglDigit = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+            const dblDigit = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+            const tensPlace = ["", "Ten", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+            
+            if (price.toString().length > 9) return "Amount too large";
+            if (price === 0) return "Zero Only";
+
+            const numString = price.toString().padStart(9, '0');
+            const crores    = parseInt(numString.substring(0, 2), 10);
+            const lakhs     = parseInt(numString.substring(2, 4), 10);
+            const thousands = parseInt(numString.substring(4, 6), 10);
+            const hundreds  = parseInt(numString.substring(6, 7), 10);
+            const tensAndOnes = parseInt(numString.substring(7, 9), 10);
+
+            let words = "";
+            const processTwoDigits = (num, suffix) => {
+                if (num > 0) {
+                    if (num < 10) words += sglDigit[num] + " " + suffix + " ";
+                    else if (num < 20) words += dblDigit[num - 10] + " " + suffix + " ";
+                    else {
+                        words += tensPlace[Math.floor(num / 10)] + " ";
+                        if (num % 10 > 0) words += sglDigit[num % 10] + " ";
+                        words += suffix + " ";
+                    }
+                }
+            };
+
+            processTwoDigits(crores, "Crore");
+            processTwoDigits(lakhs, "Lakh");
+            processTwoDigits(thousands, "Thousand");
+            if (hundreds > 0) words += sglDigit[hundreds] + " Hundred ";
+            if (tensAndOnes > 0) {
+                if (words !== "") words += "and ";
+                if (tensAndOnes < 10) words += sglDigit[tensAndOnes] + " ";
+                else if (tensAndOnes < 20) words += dblDigit[tensAndOnes - 10] + " ";
+                else {
+                    words += tensPlace[Math.floor(tensAndOnes / 10)] + " ";
+                    if (tensAndOnes % 10 > 0) words += sglDigit[tensAndOnes % 10] + " ";
+                }
+            }
+            return words.trim() + " Only";
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-xl flex items-center gap-3 text-white transition-all shadow-xl border border-white/10 max-w-sm transform translate-y-0 opacity-100 pointer-events-auto ${type === 'success' ? 'bg-slate-900 shadow-slate-900/20' : 'bg-red-600 shadow-red-600/20'}`;
+            toast.innerHTML = type === 'success' 
+                ? `<svg width="20" height="20" class="text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> <span class="font-semibold text-sm leading-snug">${message}</span>`
+                : `<svg width="20" height="20" class="text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> <span class="font-semibold text-sm leading-snug">${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-[-10px]');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        function parseInvoiceNo(invNo) {
+            const match = String(invNo).trim().match(/^(.+?)\/(\d{2}-\d{2})\/(\d+)$/);
+            if (!match) return null;
+            return { prefix: match[1], year: match[2], serial: parseInt(match[3], 10) };
+        }
+
+        function buildInvoiceNo(prefix, year, serial) {
+            return `${prefix}/${year}/${String(serial).padStart(3, '0')}`;
+        }
+
+        function getCurrentFY() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = now.getMonth();
+            const startYear = m >= 3 ? y : y - 1;
+            return `${String(startYear).slice(-2)}-${String(startYear + 1).slice(-2)}`;
+        }
+
+        async function fetchNextInvoiceNo() {
+            const spinner  = document.getElementById('inv-no-spinner');
+            const statusEl = document.getElementById('inv-no-status-text');
+            const input    = document.getElementById('inv-no');
+
+            spinner.classList.remove('hidden');
+            statusEl.textContent = 'Fetching from Sheets…';
+            input.disabled = true;
+
+            try {
+                const res  = await fetch(googleScriptUrl + '?action=getInvoiceNos');
+                const data = await res.json();
+
+                if (!data.invoiceNos || data.invoiceNos.length === 0) {
+                    const fy     = getCurrentFY();
+                    const nextNo = buildInvoiceNo('INV', fy, 1);
+                    setInvoiceNo(nextNo);
+                    statusEl.textContent = '✓ Sheet empty — starting at 001';
+                    return;
+                }
+
+                const currentFY = getCurrentFY();
+                const parsed = data.invoiceNos
+                    .map(n => parseInvoiceNo(n))
+                    .filter(p => p && p.year === currentFY);
+
+                if (parsed.length === 0) {
+                    const nextNo = buildInvoiceNo('INV', currentFY, 1);
+                    setInvoiceNo(nextNo);
+                    statusEl.textContent = `✓ New FY ${currentFY} — starting at 001`;
+                    return;
+                }
+
+                const maxSerial = Math.max(...parsed.map(p => p.serial));
+                const lastEntry = parsed.find(p => p.serial === maxSerial);
+                const nextNo    = buildInvoiceNo(lastEntry.prefix, currentFY, maxSerial + 1);
+
+                setInvoiceNo(nextNo);
+                statusEl.textContent = `✓ Last was ${maxSerial.toString().padStart(3,'0')} — auto-set next`;
+
+            } catch (err) {
+                console.error('fetchNextInvoiceNo failed:', err);
+                const fy     = getCurrentFY();
+                const nextNo = buildInvoiceNo('INV', fy, 1);
+                setInvoiceNo(nextNo);
+                statusEl.textContent = '⚠ Offline — defaulted to 001';
+            } finally {
+                spinner.classList.add('hidden');
+                input.disabled = false;
+            }
+        }
+
+        function setInvoiceNo(val) {
+            state.invoiceMeta.invoiceNo = val;
+            state.isSavedToSheets = false;
+            document.getElementById('inv-no').value = val;
+            updatePreview();
+        }
+
+        window.onload = () => {
+            document.getElementById('inv-date').value    = state.invoiceMeta.date;
+            document.getElementById('inv-challan').value = state.invoiceMeta.challanNo;
+            document.getElementById('tax-cgst').value   = state.taxes.cgst;
+            document.getElementById('tax-sgst').value   = state.taxes.sgst;
+            document.getElementById('tax-igst').value   = state.taxes.igst;
+
+            renderItemsForm();
+            updatePreview();
+
+            if (sessionStorage.getItem('gme_auth') === 'true') {
+                fetchNextInvoiceNo();
+            }
+        };
+
+        window.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                handlePrint();
+            }
+        });
+
+        function handlePrint() {
+            if (!state.isSavedToSheets) {
+                showToast('Action Blocked: Save invoice to Google Sheets before printing!', 'error');
+                return;
+            }
+            window.print();
+        }
+
+        function updateInvoiceMeta(field, value) {
+            state.invoiceMeta[field] = value;
+            state.isSavedToSheets = false;
+            updatePreview();
+        }
+
+        function updateBuyer(field, value) {
+            state.buyer[field] = value;
+            state.isSavedToSheets = false;
+            updatePreview();
+        }
+
+        function updateTaxes(field, value) {
+            state.taxes[field] = parseFloat(value) || 0;
+            state.isSavedToSheets = false;
+            updatePreview();
+        }
+
+        function renderItemsForm() {
+            const container = document.getElementById('items-list-form');
+            container.innerHTML = state.items.map(item => `
+                <div class="flex gap-3 items-end bg-slate-50/50 p-4 rounded-xl border border-slate-200/80 shadow-sm relative transition-all hover:shadow-md">
+                    <div class="grid grid-cols-12 gap-3 w-full">
+                        <div class="col-span-12 md:col-span-4">
+                            <label class="text-xs text-slate-500 font-bold uppercase tracking-wider">Description</label>
+                            <input type="text" value="${item.desc}" oninput="updateItem(${item.id}, 'desc', this.value)" class="w-full border border-slate-300 p-2 rounded-lg text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium shadow-sm mt-1" />
+                        </div>
+                        <div class="col-span-6 sm:col-span-4 md:col-span-2">
+                            <label class="text-xs text-slate-500 font-bold uppercase tracking-wider">HSN/SAC</label>
+                            <input type="text" value="${item.hsn}" oninput="updateItem(${item.id}, 'hsn', this.value)" class="w-full border border-slate-300 p-2 rounded-lg text-sm bg-white font-mono focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-700 shadow-sm mt-1" />
+                        </div>
+                        <div class="col-span-6 sm:col-span-4 md:col-span-2">
+                            <label class="text-xs text-slate-500 font-bold uppercase tracking-wider">Qty</label>
+                            <input type="number" value="${item.qty}" oninput="updateItem(${item.id}, 'qty', this.value)" class="w-full border border-slate-300 p-2 rounded-lg text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium shadow-sm mt-1" />
+                        </div>
+                        <div class="col-span-6 sm:col-span-4 md:col-span-2">
+                            <label class="text-xs text-slate-500 font-bold uppercase tracking-wider">Rate</label>
+                            <input type="number" value="${item.rate}" oninput="updateItem(${item.id}, 'rate', this.value)" class="w-full border border-slate-300 p-2 rounded-lg text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-slate-700 font-medium shadow-sm mt-1" />
+                        </div>
+                        <div class="col-span-6 sm:col-span-4 md:col-span-2">
+                            <label class="text-xs text-slate-500 font-bold uppercase tracking-wider">Amount</label>
+                            <input type="text" id="amount-${item.id}" value="${item.amount}" readonly class="w-full border border-slate-200 p-2 rounded-lg text-sm bg-slate-100 text-slate-500 font-bold cursor-not-allowed shadow-sm mt-1" />
+                        </div>
+                    </div>
+                    <button onclick="handleRemoveItem(${item.id})" class="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-2 rounded-lg transition-colors border border-transparent hover:border-rose-100 shrink-0 mb-0.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function updateItem(id, field, value) {
+            const item = state.items.find(i => i.id === id);
+            item[field] = value;
+            if (field === 'qty' || field === 'rate') {
+                item.amount = parseFloat(item.qty || 0) * parseFloat(item.rate || 0);
+                document.getElementById(`amount-${id}`).value = item.amount;
+            }
+            state.isSavedToSheets = false;
+            updatePreview();
+        }
+
+        function handleAddItem() {
+            state.items.push({ id: Date.now(), desc: '', hsn: '', qty: 1, rate: 0, per: 'Nos', amount: 0 });
+            state.isSavedToSheets = false;
+            renderItemsForm();
+            updatePreview();
+        }
+
+        function handleRemoveItem(id) {
+            state.items = state.items.filter(i => i.id !== id);
+            state.isSavedToSheets = false;
+            renderItemsForm();
+            updatePreview();
+        }
+
+        function populateBuyerFields(b) {
+            state.buyer = {
+                name:      b.name      || '',
+                address:   b.address   || '',
+                gstin:     b.gstin     || '',
+                state:     b.state     || 'Maharashtra',
+                stateCode: b.stateCode || '27',
+                phone:     b.phone     || '',
+                email:     b.email     || ''
+            };
+            state.isSavedToSheets = false;
+            document.getElementById('buyer-name').value    = state.buyer.name;
+            document.getElementById('buyer-address').value = state.buyer.address;
+            document.getElementById('buyer-gstin').value   = state.buyer.gstin;
+            document.getElementById('buyer-state').value   = state.buyer.state;
+            document.getElementById('buyer-phone').value   = state.buyer.phone;
+            document.getElementById('buyer-email').value   = state.buyer.email;
+            updatePreview();
+        }
+
+        function closeBuyerSuggestions() {
+            document.getElementById('buyer-suggestions').classList.add('hidden');
+            document.getElementById('buyer-suggestions').innerHTML = '';
+        }
+
+        function renderBuyerSuggestions(matches) {
+            const box = document.getElementById('buyer-suggestions');
+            if (!matches.length) { closeBuyerSuggestions(); return; }
+            box.innerHTML = matches.map((b, i) => `
+                <div data-idx="${i}" class="px-4 py-2.5 cursor-pointer hover:bg-blue-50/60 border-b last:border-0 border-slate-100 text-sm transition-colors">
+                    <div class="font-bold text-slate-800">${b.name}</div>
+                    <div class="text-xs text-slate-400 font-medium truncate mt-0.5">${b.address || ''} ${b.gstin ? '· ' + b.gstin : ''}</div>
+                </div>
+            `).join('');
+            box.classList.remove('hidden');
+            box.querySelectorAll('[data-idx]').forEach(el => {
+                el.addEventListener('mousedown', e => {
+                    e.preventDefault();
+                    populateBuyerFields(matches[parseInt(el.dataset.idx)]);
+                    closeBuyerSuggestions();
+                    showToast(`Buyer "${matches[parseInt(el.dataset.idx)].name}" loaded from database`, 'success');
+                });
+            });
+        }
+
+        async function onBuyerNameChange(val) {
+            state.buyer.name = val;
+            state.isSavedToSheets = false;
+            updatePreview();
+
+            clearTimeout(state.buyerSearchTimeout);
+            closeBuyerSuggestions();
+
+            const query = val.trim();
+            if (query.length < 2) return;
+
+            const localMatches = state.savedBuyers.filter(b =>
+                b.name.toLowerCase().includes(query.toLowerCase())
+            );
+            if (localMatches.length) renderBuyerSuggestions(localMatches);
+
+            state.buyerSearchTimeout = setTimeout(async () => {
+                const spinner = document.getElementById('buyer-search-spinner');
+                spinner.classList.remove('hidden');
+                try {
+                    const res  = await fetch(`${googleScriptUrl}?action=searchBuyer&q=${encodeURIComponent(query)}`);
+                    const data = await res.json();
+                    if (data.buyers && data.buyers.length) {
+                        data.buyers.forEach(b => {
+                            const idx = state.savedBuyers.findIndex(x => x.name === b.name);
+                            if (idx >= 0) state.savedBuyers[idx] = b; else state.savedBuyers.push(b);
+                        });
+                        renderBuyerSuggestions(data.buyers);
+                    } else if (!localMatches.length) {
+                        closeBuyerSuggestions();
+                    }
+                } catch(e) { }
+                finally { spinner.classList.add('hidden'); }
+            }, 400);
+        }
+
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#buyer-name') && !e.target.closest('#buyer-suggestions')) {
+                closeBuyerSuggestions();
+            }
+        });
+
+        async function handleSaveBuyer() {
+            if (!state.buyer.name.trim()) {
+                showToast('Please enter a buyer name', 'error');
+                return;
+            }
+            const existingIndex = state.savedBuyers.findIndex(b => b.name === state.buyer.name);
+            if (existingIndex >= 0) {
+                state.savedBuyers[existingIndex] = { ...state.buyer };
+            } else {
+                state.savedBuyers.push({ ...state.buyer });
+            }
+            const payload = { action: 'addBuyer', username: sessionStorage.getItem('gme_username') || 'Unknown', data: state.buyer };
+            try {
+                const res    = await fetch(googleScriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+                const result = await res.json();
+                if (result.result === 'success') {
+                    showToast(`Buyer "${state.buyer.name}" saved to Google Sheets!`, 'success');
+                } else {
+                    showToast('Saved locally. Sheet sync may have failed.', 'success');
+                }
+            } catch (error) {
+                showToast('Saved locally. Could not reach Google Sheets.', 'success');
+            }
+        }
+
+        async function handleSaveToSheets() {
+            state.isSaving = true;
+            document.getElementById('btn-save').disabled = true;
+            document.getElementById('btn-save-text').innerText = "Checking / Saving...";
+            
+            const totals = calculateTotals();
+            const payload = {
+                action: 'addInvoice',
+                username: sessionStorage.getItem('gme_username') || 'Unknown',
+                data: {
+                    invoiceNo:    state.invoiceMeta.invoiceNo,
+                    date:         state.invoiceMeta.date,
+                    challanNo:    state.invoiceMeta.challanNo,
+                    companyName:  state.company.name,
+                    buyerName:    state.buyer.name,
+                    buyerPhone:   state.buyer.phone,
+                    buyerEmail:   state.buyer.email,
+                    buyerAddress: state.buyer.address,
+                    buyerGstin:   state.buyer.gstin,
+                    subTotal:     totals.subTotal,
+                    taxAmount:    totals.cgstAmt + totals.sgstAmt + totals.igstAmt,
+                    grandTotal:   totals.grandTotal,
+                    cgstRate:     state.taxes.cgst,
+                    sgstRate:     state.taxes.sgst,
+                    igstRate:     state.taxes.igst,
+                    cgstAmount:   totals.cgstAmt,
+                    sgstAmount:   totals.sgstAmt,
+                    igstAmount:   totals.igstAmt,
+                    items:        state.items
+                }
+            };
+
+            try {
+                const response = await fetch(googleScriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+                const result   = await response.json();
+                if (result.result === 'duplicate') {
+                    showToast(`Validation Failed: Invoice No "${state.invoiceMeta.invoiceNo}" already exists in the database!`, 'error');
+                } else if (result.result === 'success') {
+                    state.isSavedToSheets = true;
+                    showToast('Invoice saved to Google Sheets successfully!', 'success');
+                } else {
+                    showToast('Error saving: ' + (result.message || 'Unknown response'), 'error');
+                }
+            } catch (error) {
+                showToast('Database connection failed. Please check internet access or Apps Script deployment.', 'error');
+            } finally {
+                state.isSaving = false;
+                document.getElementById('btn-save').disabled = false;
+                document.getElementById('btn-save-text').innerText = "Save to Sheets";
+            }
+        }
+
+        function calculateTotals() {
+            let subTotal  = state.items.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+            let cgstAmt   = subTotal * (state.taxes.cgst / 100);
+            let sgstAmt   = subTotal * (state.taxes.sgst / 100);
+            let igstAmt   = subTotal * (state.taxes.igst / 100);
+            let grandTotal = Math.round(subTotal + cgstAmt + sgstAmt + igstAmt);
+            return { subTotal, cgstAmt, sgstAmt, igstAmt, grandTotal };
+        }
+
+        function updatePreview() {
+            document.getElementById('prev-inv-no').innerText     = state.invoiceMeta.invoiceNo;
+            document.getElementById('prev-inv-date').innerText   = state.invoiceMeta.date;
+            document.getElementById('prev-challan-no').innerText = state.invoiceMeta.challanNo || '-';
+            
+            document.getElementById('prev-buyer-name').innerText    = state.buyer.name    || '-----------';
+            document.getElementById('prev-buyer-address').innerText = state.buyer.address || '-----------';
+            document.getElementById('prev-buyer-gstin').innerText   = state.buyer.gstin   || '-----------';
+
+            const phone = (state.buyer.phone || '').trim();
+            const email = (state.buyer.email || '').trim();
+            const contactRow = document.getElementById('prev-buyer-contact-row');
+            const phoneWrap  = document.getElementById('prev-buyer-phone-wrap');
+            const emailWrap  = document.getElementById('prev-buyer-email-wrap');
+            document.getElementById('prev-buyer-phone').innerText = phone;
+            document.getElementById('prev-buyer-email').innerText = email;
+            contactRow.classList.toggle('hidden', !phone && !email);
+            phoneWrap.classList.toggle('hidden', !phone);
+            emailWrap.classList.toggle('hidden', !email);
+
+            const totals = calculateTotals();
+            let itemsHtml = state.items.map((item, idx) => `
+                <div class="flex min-h-[18px]">
+                    <div class="w-[8%] p-1 text-center">${idx + 1}</div>
+                    <div class="w-[42%] p-1 pl-2 font-bold">${item.desc || '---------------------'}</div>
+                    <div class="w-[12%] p-1 text-center">${item.hsn || '-'}</div>
+                    <div class="w-[10%] p-1 text-right pr-2"><b>${item.qty}</b> ${item.per}</div>
+                    <div class="w-[10%] p-1 text-right pr-2">${parseFloat(item.rate || 0).toFixed(2)}</div>
+                    <div class="w-[6%] p-1 text-center">${item.per}</div>
+                    <div class="w-[12%] p-1 text-right font-bold pr-2">${parseFloat(item.amount || 0).toFixed(2)}</div>
+                </div>
+            `).join('');
+
+            itemsHtml += `
+                <div class="flex mt-6 font-medium">
+                    <div class="w-[8%] p-1"></div>
+                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">CGST</div>
+                    <div class="w-[12%] p-1"></div>
+                    <div class="w-[10%] p-1 text-right pr-2">${state.taxes.cgst}%</div>
+                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[6%] p-1"></div>
+                    <div class="w-[12%] p-1 text-right pr-2 font-bold">${totals.cgstAmt.toFixed(2)}</div>
+                </div>
+                <div class="flex font-medium">
+                    <div class="w-[8%] p-1"></div>
+                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">SGST</div>
+                    <div class="w-[12%] p-1"></div>
+                    <div class="w-[10%] p-1 text-right pr-2">${state.taxes.sgst}%</div>
+                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[6%] p-1"></div>
+                    <div class="w-[12%] p-1 text-right pr-2 font-bold">${totals.sgstAmt.toFixed(2)}</div>
+                </div>
+            `;
+            if (totals.igstAmt > 0) {
+                itemsHtml += `
+                    <div class="flex font-medium">
+                        <div class="w-[8%] p-1"></div>
+                        <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">IGST</div>
+                        <div class="w-[12%] p-1"></div>
+                        <div class="w-[10%] p-1 text-right pr-2">${state.taxes.igst}%</div>
+                        <div class="w-[10%] p-1"></div>
+                        <div class="w-[6%] p-1"></div>
+                        <div class="w-[12%] p-1 text-right pr-2 font-bold">${totals.igstAmt.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('prev-items-body').innerHTML = itemsHtml;
+            document.getElementById('prev-grand-total').innerText = '₹ ' + totals.grandTotal.toFixed(2);
+            document.getElementById('prev-amount-words').innerText = 'INR ' + numberToWords(totals.grandTotal);
+        }
+
+        // ══════════════════════════════════════════════════════════
+        //  DASHBOARD ANALYTICS (FROM V1)
+        // ══════════════════════════════════════════════════════════
+
+        let dashChartInstance = null;
+
+        function openDashboard() {
+            document.getElementById('dashboard-overlay').classList.add('open');
+            document.body.style.overflow = 'hidden';
+            loadDashboard();
+        }
+
+        function closeDashboard() {
+            document.getElementById('dashboard-overlay').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        function fmtINR(n) {
+            if (isNaN(n) || n === null) return '—';
+            if (n >= 10000000) return '₹' + (n / 10000000).toFixed(2) + ' Cr';
+            if (n >= 100000)   return '₹' + (n / 100000).toFixed(2) + ' L';
+            return '₹' + Math.round(n).toLocaleString('en-IN');
+        }
+
+        function fmtDate(raw) {
+            if (!raw) return '-';
+            const d = new Date(raw);
+            if (isNaN(d)) return raw;
+            return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        function getMonthKey(dateStr) {
+            const d = new Date(dateStr);
+            if (isNaN(d)) return null;
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        }
+
+        function getMonthLabel(key) {
+            const [y, m] = key.split('-');
+            return new Date(+y, +m-1, 1).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+        }
+
+        async function loadDashboard() {
+            const refreshIcon = document.getElementById('dash-refresh-icon');
+            refreshIcon.classList.add('animate-spin');
+            document.getElementById('chart-loading').style.display = 'flex';
+
+            try {
+                const res  = await fetch(googleScriptUrl + '?action=getDashboard');
+                const data = await res.json();
+                renderDashboard(data);
+            } catch(e) {
+                renderDashboard({ invoices: [], error: 'Could not connect to Google Sheets. Showing demo data.', demo: true });
+            } finally {
+                refreshIcon.classList.remove('animate-spin');
+                document.getElementById('chart-loading').style.display = 'none';
+            }
+        }
+
+        function renderDashboard(data) {
+            const invoices = data.invoices || [];
+
+            const totalRevenue = invoices.reduce((s, inv) => s + (parseFloat(inv.grandTotal) || 0), 0);
+            const avgValue     = invoices.length ? totalRevenue / invoices.length : 0;
+
+            const now = new Date();
+            const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+            const thisMonthInvs = invoices.filter(inv => getMonthKey(inv.date) === thisMonthKey);
+            const thisMonthRev  = thisMonthInvs.reduce((s, inv) => s + (parseFloat(inv.grandTotal) || 0), 0);
+
+            document.getElementById('kpi-total-invoices').textContent = invoices.length || '0';
+            document.getElementById('kpi-total-revenue').textContent  = fmtINR(totalRevenue);
+            document.getElementById('kpi-this-month').textContent     = thisMonthInvs.length;
+            document.getElementById('kpi-this-month-label').textContent = `Invoices · ${fmtINR(thisMonthRev)}`;
+            document.getElementById('kpi-avg-value').textContent      = fmtINR(avgValue);
+
+            const monthMap = {};
+            invoices.forEach(inv => {
+                const k = getMonthKey(inv.date);
+                if (!k) return;
+                monthMap[k] = (monthMap[k] || 0) + (parseFloat(inv.grandTotal) || 0);
+            });
+
+            const last6 = [];
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                last6.push({ key: k, label: getMonthLabel(k), value: monthMap[k] || 0 });
+            }
+
+            const chartCanvas = document.getElementById('dash-chart');
+            if (dashChartInstance) { dashChartInstance.destroy(); dashChartInstance = null; }
+            dashChartInstance = new Chart(chartCanvas, {
+                type: 'bar',
+                data: {
+                    labels: last6.map(m => m.label),
+                    datasets: [{
+                        label: 'Revenue (₹)',
+                        data: last6.map(m => Math.round(m.value)),
+                        backgroundColor: last6.map((m, i) => i === 5 ? '#7c3aed' : '#ddd6fe'),
+                        borderRadius: 6,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: ctx => ' ₹' + ctx.raw.toLocaleString('en-IN') } }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#94a3b8' } },
+                        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, color: '#94a3b8', callback: v => fmtINR(v) }, border: { display: false } }
+                    }
+                }
+            });
+
+            const buyerMap = {};
+            invoices.forEach(inv => {
+                const name = (inv.buyerName || '').trim() || 'Unknown';
+                if (!buyerMap[name]) buyerMap[name] = { count: 0, total: 0 };
+                buyerMap[name].count++;
+                buyerMap[name].total += parseFloat(inv.grandTotal) || 0;
+            });
+            const topBuyers = Object.entries(buyerMap).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
+            const maxCount  = topBuyers.length ? topBuyers[0][1].count : 1;
+
+            const buyerColors = ['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd','#ddd6fe','#ede9fe'];
+            document.getElementById('top-buyers-list').innerHTML = topBuyers.length
+                ? topBuyers.map(([name, stats], i) => `
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-semibold text-slate-700 truncate max-w-[60%]" title="${name}">${name}</span>
+                            <span class="text-xs text-slate-400 font-medium">${stats.count} inv · ${fmtINR(stats.total)}</span>
+                        </div>
+                        <div class="h-1.5 rounded-full bg-slate-100">
+                            <div style="width:${Math.round((stats.count/maxCount)*100)}%;height:100%;border-radius:999px;background:${buyerColors[i]||'#7c3aed'};transition:width .5s ease"></div>
+                        </div>
+                    </div>
+                `).join('')
+                : '<p class="text-xs text-slate-400 text-center py-6">No buyer data yet</p>';
+
+            const recent = [...invoices].reverse().slice(0, 15);
+            document.getElementById('recent-count-badge').textContent = recent.length + ' entries';
+            document.getElementById('dash-invoices-body').innerHTML = recent.length
+                ? recent.map(inv => {
+                    const total  = parseFloat(inv.grandTotal) || 0;
+                    const itemsArr = (() => { try { return JSON.parse(inv.items || '[]'); } catch(e) { return []; } })();
+                    const itemCount = itemsArr.length || (inv.itemCount || '-');
+                    return `
+                        <tr>
+                            <td><span class="font-mono font-bold text-violet-700 text-[11px]">${inv.invoiceNo || '-'}</span></td>
+                            <td class="text-slate-500">${fmtDate(inv.date)}</td>
+                            <td class="font-semibold text-slate-700 max-w-[140px] truncate" title="${inv.buyerName||''}">${inv.buyerName || '-'}</td>
+                            <td><span class="dash-badge blue">${itemCount} item${itemCount===1?'':'s'}</span></td>
+                            <td class="text-right font-bold text-slate-800 pr-5">${fmtINR(total)}</td>
+                            <td class="text-slate-400 text-[11px]">${inv.username || '-'}</td>
+                            <td class="text-slate-400 font-mono text-[11px]">${inv.challanNo || '-'}</td>
+                        </tr>
+                    `;
+                }).join('')
+                : '<tr><td colspan="7" class="text-center py-10 text-slate-400 text-xs">No invoices found in Google Sheets</td></tr>';
+
+            const fyMap = {};
+            invoices.forEach(inv => {
+                const d = new Date(inv.date);
+                if (isNaN(d)) return;
+                const m = d.getMonth();
+                const startY = m >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+                const fy = `${String(startY).slice(-2)}-${String(startY+1).slice(-2)}`;
+                if (!fyMap[fy]) fyMap[fy] = { count: 0, total: 0 };
+                fyMap[fy].count++;
+                fyMap[fy].total += parseFloat(inv.grandTotal) || 0;
+            });
+            const fyEntries = Object.entries(fyMap).sort((a,b) => b[0].localeCompare(a[0]));
+            document.getElementById('fy-breakdown').innerHTML = fyEntries.length
+                ? fyEntries.map(([fy, stats], i) => `
+                    <div class="rounded-lg border ${i===0?'border-violet-200 bg-violet-50':'border-slate-100 bg-slate-50'} p-3 text-center">
+                        <div class="text-[10px] font-bold uppercase tracking-wider ${i===0?'text-violet-500':'text-slate-400'} mb-1">FY ${fy}</div>
+                        <div class="text-base font-extrabold ${i===0?'text-violet-700':'text-slate-700'}">${fmtINR(stats.total)}</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">${stats.count} invoice${stats.count!==1?'s':''}</div>
+                    </div>
+                `).join('')
+                : '<p class="col-span-6 text-xs text-slate-400 text-center py-4">No data yet</p>';
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && document.getElementById('dashboard-overlay').classList.contains('open')) {
+                closeDashboard();
+            }
+            if (e.key === 'Escape' && document.getElementById('reports-overlay').classList.contains('open')) {
+                closeReports();
+            }
+        });
+
+        // ══════════════════════════════════════════════════════════
+        //  REPORTS MODULE
+        // ══════════════════════════════════════════════════════════
+
+        let repAllInvoices = [];  // master cache for current reports session
+        let repYearChartInstance = null;
+        let currentReprintInvoice = null;
+
+        function openReports() {
+            document.getElementById('reports-overlay').classList.add('open');
+            document.body.style.overflow = 'hidden';
+            loadReports();
+        }
+
+        function closeReports() {
+            document.getElementById('reports-overlay').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        async function loadReports() {
+            const icon = document.getElementById('rep-refresh-icon');
+            icon.classList.add('animate-spin');
+            try {
+                const res  = await fetch(googleScriptUrl + '?action=getDashboard');
+                const data = await res.json();
+                repAllInvoices = (data.invoices || []).sort((a, b) => new Date(b.date) - new Date(a.date));
+                populateYearSelectors();
+                // Re-apply whichever tab is active
+                const active = document.querySelector('.rep-tab-btn[style*="border-color"]') || document.getElementById('rep-tab-reprint');
+                const activeId = active.id.replace('rep-tab-','');
+                applyCurrentTabData(activeId);
+                applyAllFilter();
+            } catch(e) {
+                repAllInvoices = [];
+            } finally {
+                icon.classList.remove('animate-spin');
+            }
+        }
+
+        function applyCurrentTabData(tabId) {
+            if (tabId === 'all') applyAllFilter();
+        }
+
+        function populateYearSelectors() {
+            const fySet  = new Set();
+            const cySet  = new Set();
+            repAllInvoices.forEach(inv => {
+                const d = new Date(inv.date);
+                if (isNaN(d)) return;
+                const m = d.getMonth();
+                const y = d.getFullYear();
+                const startY = m >= 3 ? y : y - 1;
+                fySet.add(`${String(startY).slice(-2)}-${String(startY+1).slice(-2)}`);
+                cySet.add(String(y));
+            });
+            const fyEl = document.getElementById('filter-fy');
+            const cyEl = document.getElementById('filter-cy');
+            const currentFySel = fyEl.value;
+            const currentCySel = cyEl.value;
+            fyEl.innerHTML = '<option value="">-- Select FY --</option>' + [...fySet].sort().reverse().map(v => `<option value="${v}" ${v===currentFySel?'selected':''}>${v}</option>`).join('');
+            cyEl.innerHTML = '<option value="">-- Select Year --</option>' + [...cySet].sort().reverse().map(v => `<option value="${v}" ${v===currentCySel?'selected':''}>${v}</option>`).join('');
+        }
+
+        function switchReportTab(tabId) {
+            document.querySelectorAll('.rep-panel').forEach(p => p.classList.add('hidden'));
+            document.getElementById('rep-panel-' + tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.rep-tab-btn').forEach(btn => {
+                btn.classList.remove('border-teal-600', 'text-teal-700');
+                btn.classList.add('border-transparent', 'text-slate-500');
+            });
+            const active = document.getElementById('rep-tab-' + tabId);
+            active.classList.remove('border-transparent', 'text-slate-500');
+            active.classList.add('border-teal-600', 'text-teal-700');
+
+            if (tabId === 'all') applyAllFilter();
+        }
+
+        // ── Helpers ──────────────────────────────────────────────
+
+        function reportTableRows(invArr) {
+            if (!invArr.length) return '<tr><td colspan="6" class="text-center py-10 text-slate-400 text-xs">No invoices found for this filter.</td></tr>';
+            return invArr.map(inv => `
+                <tr>
+                    <td><span class="font-mono font-bold text-teal-700 text-[11px]">${inv.invoiceNo || '-'}</span></td>
+                    <td class="text-slate-500">${fmtDate(inv.date)}</td>
+                    <td class="font-semibold text-slate-700 max-w-[150px] truncate" title="${inv.buyerName||''}">${inv.buyerName || '-'}</td>
+                    <td class="text-slate-400 font-mono text-[11px]">${inv.challanNo || '-'}</td>
+                    <td class="text-right font-bold text-slate-800 pr-5">${fmtINR(parseFloat(inv.grandTotal)||0)}</td>
+                    <td class="text-slate-400 text-[11px]">${inv.username || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        function summaryCards(invArr, countId, revId, avgId) {
+            const count = invArr.length;
+            const rev   = invArr.reduce((s, i) => s + (parseFloat(i.grandTotal)||0), 0);
+            const avg   = count ? rev / count : 0;
+            document.getElementById(countId).textContent = count;
+            document.getElementById(revId).textContent   = fmtINR(rev);
+            document.getElementById(avgId).textContent   = fmtINR(avg);
+        }
+
+        // ── Month Filter ──────────────────────────────────────────
+
+        function applyMonthFilter() {
+            const val = document.getElementById('filter-month').value; // YYYY-MM
+            if (!val) { showToast('Please select a month', 'error'); return; }
+            const filtered = repAllInvoices.filter(inv => getMonthKey(inv.date) === val);
+            document.getElementById('month-report-body').innerHTML = reportTableRows(filtered);
+            summaryCards(filtered, 'ms-count', 'ms-revenue', 'ms-avg');
+            document.getElementById('month-summary-cards').classList.remove('hidden');
+        }
+
+        function clearMonthFilter() {
+            document.getElementById('filter-month').value = '';
+            document.getElementById('month-report-body').innerHTML = '<tr><td colspan="6" class="text-center py-10 text-slate-400 text-xs">Select a month and click Apply Filter</td></tr>';
+            document.getElementById('month-summary-cards').classList.add('hidden');
+        }
+
+        // ── Year Filter ───────────────────────────────────────────
+
+        function applyYearFilter() {
+            const fy = document.getElementById('filter-fy').value;
+            const cy = document.getElementById('filter-cy').value;
+            if (!fy && !cy) { showToast('Please select a Financial Year or Calendar Year', 'error'); return; }
+
+            let filtered;
+            if (fy) {
+                const parts = fy.split('-');
+                const startY = 2000 + parseInt(parts[0]);
+                const endY   = 2000 + parseInt(parts[1]);
+                filtered = repAllInvoices.filter(inv => {
+                    const d = new Date(inv.date);
+                    if (isNaN(d)) return false;
+                    const m = d.getMonth();
+                    const y = d.getFullYear();
+                    const invStartY = m >= 3 ? y : y - 1;
+                    return invStartY === startY;
+                });
+            } else {
+                filtered = repAllInvoices.filter(inv => {
+                    const d = new Date(inv.date);
+                    return !isNaN(d) && String(d.getFullYear()) === cy;
+                });
+            }
+
+            document.getElementById('year-report-body').innerHTML = reportTableRows(filtered);
+            summaryCards(filtered, 'ys-count', 'ys-revenue', 'ys-avg');
+            document.getElementById('year-summary-cards').classList.remove('hidden');
+
+            // Monthly chart
+            const monthMap = {};
+            filtered.forEach(inv => {
+                const k = getMonthKey(inv.date);
+                if (k) monthMap[k] = (monthMap[k]||0) + (parseFloat(inv.grandTotal)||0);
+            });
+            const sortedKeys = Object.keys(monthMap).sort();
+            if (repYearChartInstance) { repYearChartInstance.destroy(); repYearChartInstance = null; }
+            document.getElementById('year-chart-wrap').classList.remove('hidden');
+            repYearChartInstance = new Chart(document.getElementById('year-month-chart'), {
+                type: 'bar',
+                data: {
+                    labels: sortedKeys.map(getMonthLabel),
+                    datasets: [{ label: 'Revenue (₹)', data: sortedKeys.map(k => Math.round(monthMap[k])), backgroundColor: '#0d9488', borderRadius: 5, borderSkipped: false }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ₹' + ctx.raw.toLocaleString('en-IN') } } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#94a3b8' } },
+                        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, color: '#94a3b8', callback: v => fmtINR(v) }, border: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function clearYearFilter() {
+            document.getElementById('filter-fy').value = '';
+            document.getElementById('filter-cy').value = '';
+            document.getElementById('year-report-body').innerHTML = '<tr><td colspan="6" class="text-center py-10 text-slate-400 text-xs">Select a year and click Apply Filter</td></tr>';
+            document.getElementById('year-summary-cards').classList.add('hidden');
+            document.getElementById('year-chart-wrap').classList.add('hidden');
+            if (repYearChartInstance) { repYearChartInstance.destroy(); repYearChartInstance = null; }
+        }
+
+        // ── Buyer Filter ──────────────────────────────────────────
+
+        function onBuyerFilterInput(val) {
+            const suggBox = document.getElementById('buyer-filter-suggestions');
+            if (val.trim().length < 1) { suggBox.classList.add('hidden'); return; }
+            const names = [...new Set(repAllInvoices.map(i => i.buyerName).filter(n => n && n.toLowerCase().includes(val.toLowerCase())))];
+            if (!names.length) { suggBox.classList.add('hidden'); return; }
+            suggBox.innerHTML = names.slice(0, 10).map(n => `
+                <div class="px-4 py-2.5 cursor-pointer hover:bg-teal-50 text-sm font-medium text-slate-700 transition-colors"
+                     onmousedown="event.preventDefault(); document.getElementById('filter-buyer').value='${n.replace(/'/g,"\\'")}'; document.getElementById('buyer-filter-suggestions').classList.add('hidden');">
+                    ${n}
+                </div>
+            `).join('');
+            suggBox.classList.remove('hidden');
+        }
+
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#filter-buyer') && !e.target.closest('#buyer-filter-suggestions')) {
+                const b = document.getElementById('buyer-filter-suggestions');
+                if (b) b.classList.add('hidden');
+            }
+        });
+
+        function applyBuyerFilter() {
+            const val = (document.getElementById('filter-buyer').value || '').trim().toLowerCase();
+            if (!val) { showToast('Please enter a buyer name', 'error'); return; }
+            const filtered = repAllInvoices.filter(inv => (inv.buyerName || '').toLowerCase().includes(val));
+            document.getElementById('buyer-report-body').innerHTML = reportTableRows(filtered);
+            summaryCards(filtered, 'bs-count', 'bs-revenue', 'bs-avg');
+            document.getElementById('buyer-summary-cards').classList.remove('hidden');
+        }
+
+        function clearBuyerFilter() {
+            document.getElementById('filter-buyer').value = '';
+            document.getElementById('buyer-report-body').innerHTML = '<tr><td colspan="6" class="text-center py-10 text-slate-400 text-xs">Search for a buyer and click Apply Filter</td></tr>';
+            document.getElementById('buyer-summary-cards').classList.add('hidden');
+        }
+
+        // ── All Invoices Filter ───────────────────────────────────
+
+        function applyAllFilter() {
+            const search  = (document.getElementById('filter-all-search').value || '').toLowerCase();
+            const fromVal = document.getElementById('filter-all-from').value;
+            const toVal   = document.getElementById('filter-all-to').value;
+            const from    = fromVal ? new Date(fromVal) : null;
+            const to      = toVal   ? new Date(toVal + 'T23:59:59') : null;
+
+            const filtered = repAllInvoices.filter(inv => {
+                const d = new Date(inv.date);
+                if (from && d < from) return false;
+                if (to   && d > to)   return false;
+                if (search && !(
+                    (inv.invoiceNo||'').toLowerCase().includes(search) ||
+                    (inv.buyerName||'').toLowerCase().includes(search) ||
+                    (inv.challanNo||'').toLowerCase().includes(search)
+                )) return false;
+                return true;
+            });
+
+            const rev = filtered.reduce((s,i) => s+(parseFloat(i.grandTotal)||0), 0);
+            document.getElementById('all-summary-row').textContent = `Showing ${filtered.length} invoice${filtered.length!==1?'s':''} · Total: ${fmtINR(rev)}`;
+            document.getElementById('all-report-body').innerHTML = reportTableRows(filtered);
+        }
+
+        function clearAllFilter() {
+            document.getElementById('filter-all-search').value = '';
+            document.getElementById('filter-all-from').value   = '';
+            document.getElementById('filter-all-to').value     = '';
+            applyAllFilter();
+        }
+
+        // ── Reprint Logic ─────────────────────────────────────────
+
+        async function fetchInvoiceForReprint() {
+            const invNo   = (document.getElementById('reprint-inv-input').value || '').trim();
+            const spinner = document.getElementById('reprint-fetch-spinner');
+            const errBox  = document.getElementById('reprint-error');
+            const card    = document.getElementById('reprint-preview-card');
+
+            errBox.classList.add('hidden');
+            card.classList.add('hidden');
+            currentReprintInvoice = null;
+
+            if (!invNo) { errBox.textContent = 'Please enter an Invoice Number.'; errBox.classList.remove('hidden'); return; }
+
+            spinner.classList.remove('hidden');
+
+            try {
+                // ── Step 1: Search in the already-loaded cache (fast, no extra API call) ──
+                let found = repAllInvoices.find(inv =>
+                    (inv.invoiceNo || '').trim().toLowerCase() === invNo.toLowerCase()
+                );
+
+                // ── Step 2: If cache is empty or not found, fetch fresh from Sheets ──
+                if (!found) {
+                    // Try loading the full dashboard data first (populates cache)
+                    if (repAllInvoices.length === 0) {
+                        try {
+                            const res  = await fetch(googleScriptUrl + '?action=getDashboard');
+                            const data = await res.json();
+                            repAllInvoices = (data.invoices || []).sort((a, b) => new Date(b.date) - new Date(a.date));
+                            populateYearSelectors();
+                        } catch(e) { /* will fall through to direct lookup */ }
+                    }
+
+                    // Search again after reload
+                    found = repAllInvoices.find(inv =>
+                        (inv.invoiceNo || '').trim().toLowerCase() === invNo.toLowerCase()
+                    );
+                }
+
+                // ── Step 3: If still not found, try the direct getInvoiceByNo action ──
+                if (!found) {
+                    try {
+                        const res  = await fetch(googleScriptUrl + '?action=getInvoiceByNo&invoiceNo=' + encodeURIComponent(invNo));
+                        const data = await res.json();
+                        if (data.invoice) found = data.invoice;
+                    } catch(e) { /* silent — show not-found below */ }
+                }
+
+                if (!found) {
+                    errBox.textContent = `Invoice "${invNo}" not found. Check the invoice number and try again.`;
+                    errBox.classList.remove('hidden');
+                    return;
+                }
+
+                currentReprintInvoice = found;
+                renderReprintCard(found);
+                card.classList.remove('hidden');
+
+            } catch(e) {
+                errBox.textContent = 'Connection error. Please try again.';
+                errBox.classList.remove('hidden');
+            } finally {
+                spinner.classList.add('hidden');
+            }
+        }
+
+        function renderReprintCard(inv) {
+            document.getElementById('rp-inv-no').textContent      = inv.invoiceNo || '-';
+            document.getElementById('rp-inv-date').textContent    = fmtDate(inv.date);
+            document.getElementById('rp-buyer-name').textContent  = inv.buyerName || '-';
+            document.getElementById('rp-buyer-address').textContent = inv.buyerAddress || '';
+            document.getElementById('rp-buyer-gstin').textContent = inv.buyerGstin || '';
+            document.getElementById('rp-subtotal').textContent    = fmtINR(parseFloat(inv.subTotal)||0);
+            document.getElementById('rp-tax').textContent         = fmtINR(parseFloat(inv.taxAmount)||0);
+            document.getElementById('rp-grand').textContent       = fmtINR(parseFloat(inv.grandTotal)||0);
+
+            const items = (() => { try { return JSON.parse(inv.items || '[]'); } catch(e) { return []; } })();
+            document.getElementById('rp-items-body').innerHTML = items.length
+                ? items.map((it, i) => `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td class="font-semibold">${it.desc||'-'}</td>
+                        <td class="font-mono">${it.hsn||'-'}</td>
+                        <td>${it.qty} ${it.per||''}</td>
+                        <td class="text-right">₹${parseFloat(it.rate||0).toFixed(2)}</td>
+                        <td class="text-right pr-4 font-bold">₹${parseFloat(it.amount||0).toFixed(2)}</td>
+                    </tr>`).join('')
+                : '<tr><td colspan="6" class="text-center py-4 text-slate-400 text-xs">No items data</td></tr>';
+        }
+
+        function triggerReprintWindow() {
+            if (!currentReprintInvoice) return;
+            const inv   = currentReprintInvoice;
+            const items = (() => { try { return JSON.parse(inv.items || '[]'); } catch(e) { return []; } })();
+            const subTotal  = parseFloat(inv.subTotal)  || 0;
+            const taxAmount = parseFloat(inv.taxAmount) || 0;
+            const grandTotal= parseFloat(inv.grandTotal)|| 0;
+
+            // Build amounts-in-words
+            const wordsStr = 'INR ' + numberToWords(Math.round(grandTotal));
+
+            // Tax breakdown: try to read from inv, otherwise split proportionally
+            const cgstRate = parseFloat(inv.cgstRate||0);
+            const sgstRate = parseFloat(inv.sgstRate||0);
+            const igstRate = parseFloat(inv.igstRate||0);
+            const cgstAmt  = parseFloat(inv.cgstAmount||0);
+            const sgstAmt  = parseFloat(inv.sgstAmount||0);
+            const igstAmt  = parseFloat(inv.igstAmount||0);
+
+            const itemRows = items.map((it,i) => `
+                <div class="flex min-h-[18px]">
+                    <div class="w-[8%] p-1 text-center">${i+1}</div>
+                    <div class="w-[42%] p-1 pl-2 font-bold">${it.desc||'-'}</div>
+                    <div class="w-[12%] p-1 text-center">${it.hsn||'-'}</div>
+                    <div class="w-[10%] p-1 text-right pr-2"><b>${it.qty}</b> ${it.per||'Nos'}</div>
+                    <div class="w-[10%] p-1 text-right pr-2">${parseFloat(it.rate||0).toFixed(2)}</div>
+                    <div class="w-[6%] p-1 text-center">${it.per||'Nos'}</div>
+                    <div class="w-[12%] p-1 text-right font-bold pr-2">${parseFloat(it.amount||0).toFixed(2)}</div>
+                </div>`).join('');
+
+            const taxRows = `
+                <div class="flex mt-4 font-medium">
+                    <div class="w-[8%] p-1"></div>
+                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">CGST${cgstRate ? ' '+cgstRate+'%':''}</div>
+                    <div class="w-[12%] p-1"></div>
+                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[6%] p-1"></div>
+                    <div class="w-[12%] p-1 text-right pr-2 font-bold">${cgstAmt.toFixed(2)}</div>
+                </div>
+                <div class="flex font-medium">
+                    <div class="w-[8%] p-1"></div>
+                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">SGST${sgstRate ? ' '+sgstRate+'%':''}</div>
+                    <div class="w-[12%] p-1"></div>
+                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[6%] p-1"></div>
+                    <div class="w-[12%] p-1 text-right pr-2 font-bold">${sgstAmt.toFixed(2)}</div>
+                </div>
+                ${igstAmt > 0 ? `<div class="flex font-medium">
+                    <div class="w-[8%] p-1"></div>
+                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">IGST${igstRate ? ' '+igstRate+'%':''}</div>
+                    <div class="w-[12%] p-1"></div>
+                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[6%] p-1"></div>
+                    <div class="w-[12%] p-1 text-right pr-2 font-bold">${igstAmt.toFixed(2)}</div>
+                </div>` : ''}`;
+
+            const html = `<!DOCTYPE html><html lang="en"><head>
+                <meta charset="UTF-8"><title>Invoice ${inv.invoiceNo}</title>
+                <script src="https://cdn.tailwindcss.com"><\/script>
+                <style>
+                    *, *::before, *::after { box-sizing: border-box !important; }
+                    .tally-border { border: 1px solid #000 !important; }
+                    .tally-border-b { border-bottom: 1px solid #000 !important; }
+                    .tally-border-t { border-top: 1px solid #000 !important; }
+                    .tally-border-r { border-right: 1px solid #000 !important; }
+                    .tally-border-l { border-left: 1px solid #000 !important; }
+                    @media print {
+                        body { background: white !important; padding: 0 !important; margin: 0 !important; }
+                        @page { size: A4 portrait; margin: 10mm; }
+                        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    }
+                </style>
+            </head><body class="bg-white font-sans">
+            <div style="width:190mm;max-width:190mm;height:277mm;min-height:277mm;margin:0 auto;font-size:10px;display:flex;flex-direction:column;">
+                <div class="tally-border" style="flex:1;display:flex;flex-direction:column;">
+                    <div class="tally-border-b p-2 text-center font-bold text-sm">TAX INVOICE</div>
+                    <div class="tally-border-b flex">
+                        <div class="w-1/2 tally-border-r p-2">
+                            <div class="font-extrabold text-base">${state.company.name}</div>
+                            <div>${state.company.address}</div>
+                            <div>GSTIN: ${state.company.gstin} | State: ${state.company.state} (${state.company.stateCode})</div>
+                            <div>Ph: ${state.company.phone} | ${state.company.email}</div>
+                        </div>
+                        <div class="w-1/2 p-2">
+                            <div><span class="font-bold">Invoice No.: </span>${inv.invoiceNo||'-'}</div>
+                            <div><span class="font-bold">Date: </span>${fmtDate(inv.date)}</div>
+                            <div><span class="font-bold">Challan No.: </span>${inv.challanNo||'-'}</div>
+                        </div>
+                    </div>
+                    <div class="tally-border-b p-2">
+                        <div class="font-bold underline mb-1">Buyer (Billed to)</div>
+                        <div class="font-bold">${inv.buyerName||'-'}</div>
+                        <div>${inv.buyerAddress||''}</div>
+                        <div>GSTIN: ${inv.buyerGstin||'-----------'}</div>
+                        ${inv.buyerPhone ? '<div>Ph: '+inv.buyerPhone+'</div>' : ''}
+                    </div>
+                    <div class="tally-border-b flex font-bold bg-slate-100">
+                        <div class="w-[8%] p-1 text-center tally-border-r">#</div>
+                        <div class="w-[42%] p-1 pl-2 tally-border-r">Description</div>
+                        <div class="w-[12%] p-1 text-center tally-border-r">HSN/SAC</div>
+                        <div class="w-[10%] p-1 text-right pr-2 tally-border-r">Qty</div>
+                        <div class="w-[10%] p-1 text-right pr-2 tally-border-r">Rate</div>
+                        <div class="w-[6%] p-1 text-center tally-border-r">Per</div>
+                        <div class="w-[12%] p-1 text-right pr-2 tally-border-l">Amount</div>
+                    </div>
+                    <div id="items-table-container" style="flex-grow:1;">
+                        ${itemRows}${taxRows}
+                    </div>
+                    <div class="tally-border-b flex font-bold">
+                        <div class="w-[8%] p-1"></div>
+                        <div class="w-[42%] p-1 text-right pr-2">Total</div>
+                        <div class="w-[12%] p-1"></div>
+                        <div class="w-[10%] p-1"></div>
+                        <div class="w-[10%] p-1"></div>
+                        <div class="w-[6%] p-1"></div>
+                        <div class="w-[12%] p-1 text-right pr-2 tally-border-l">₹ ${grandTotal.toFixed(2)}</div>
+                    </div>
+                    <div class="tally-border-b p-2">
+                        <div class="font-bold text-[10px] uppercase text-gray-500">Amount Chargeable (in words)</div>
+                        <div class="font-bold mt-1">${wordsStr}</div>
+                    </div>
+                    <div class="tally-border-b flex">
+                        <div class="w-1/2 tally-border-r p-2">
+                            <div class="font-bold underline mb-1">Declaration</div>
+                            <div class="text-justify text-[9px] leading-tight text-gray-700">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</div>
+                        </div>
+                        <div class="w-1/2 p-2 flex flex-col justify-between">
+                            <div class="text-right font-bold text-[10px]">for ${state.company.name}</div>
+                            <div class="text-right font-bold mt-14 pb-1">Authorised Signatory</div>
+                        </div>
+                    </div>
+                    <div class="text-center py-1 text-[9px] font-semibold text-gray-600">SUBJECT TO MAHARASHTRA JURISDICTION</div>
+                    <div class="text-center pb-1 text-[9px] text-gray-500">This is a Computer Generated Invoice</div>
+                </div>
+            </div>
+            <script>window.onload=()=>{ window.print(); }<\/script>
+            </body></html>`;
+
+            const w = window.open('', '_blank', 'width=900,height=700');
+            if (w) { w.document.open(); w.document.write(html); w.document.close(); }
+            else    { showToast('Popup blocked. Please allow popups and try again.', 'error'); }
+        }
+    </script>
+</body>
+</html>
