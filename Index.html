@@ -2010,148 +2010,238 @@
 
         function triggerReprintWindow() {
             if (!currentReprintInvoice) return;
-            const inv   = currentReprintInvoice;
-            const items = (() => { try { return JSON.parse(inv.items || '[]'); } catch(e) { return []; } })();
-            const subTotal  = parseFloat(inv.subTotal)  || 0;
-            const taxAmount = parseFloat(inv.taxAmount) || 0;
-            const grandTotal= parseFloat(inv.grandTotal)|| 0;
+            const inv        = currentReprintInvoice;
+            const items      = (() => { try { return JSON.parse(inv.items || '[]'); } catch(e) { return []; } })();
+            const grandTotal = parseFloat(inv.grandTotal) || 0;
+            const wordsStr   = 'INR ' + numberToWords(Math.round(grandTotal));
 
-            // Build amounts-in-words
-            const wordsStr = 'INR ' + numberToWords(Math.round(grandTotal));
+            // Tax amounts — use stored values if available, otherwise derive from totals
+            let cgstAmt = parseFloat(inv.cgstAmount || 0);
+            let sgstAmt = parseFloat(inv.sgstAmount || 0);
+            let igstAmt = parseFloat(inv.igstAmount || 0);
+            const cgstRate = parseFloat(inv.cgstRate || 0);
+            const sgstRate = parseFloat(inv.sgstRate || 0);
+            const igstRate = parseFloat(inv.igstRate || 0);
+            // If tax amounts are zero but tax total is not, split 50/50 CGST+SGST
+            if (cgstAmt === 0 && sgstAmt === 0) {
+                const taxTotal = parseFloat(inv.taxAmount || 0);
+                cgstAmt = taxTotal / 2;
+                sgstAmt = taxTotal / 2;
+            }
 
-            // Tax breakdown: try to read from inv, otherwise split proportionally
-            const cgstRate = parseFloat(inv.cgstRate||0);
-            const sgstRate = parseFloat(inv.sgstRate||0);
-            const igstRate = parseFloat(inv.igstRate||0);
-            const cgstAmt  = parseFloat(inv.cgstAmount||0);
-            const sgstAmt  = parseFloat(inv.sgstAmount||0);
-            const igstAmt  = parseFloat(inv.igstAmount||0);
-
-            const itemRows = items.map((it,i) => `
+            // ── Item rows — exact same markup as #prev-items-body ──
+            const itemRows = items.map((it, idx) => `
                 <div class="flex min-h-[18px]">
-                    <div class="w-[8%] p-1 text-center">${i+1}</div>
-                    <div class="w-[42%] p-1 pl-2 font-bold">${it.desc||'-'}</div>
-                    <div class="w-[12%] p-1 text-center">${it.hsn||'-'}</div>
-                    <div class="w-[10%] p-1 text-right pr-2"><b>${it.qty}</b> ${it.per||'Nos'}</div>
-                    <div class="w-[10%] p-1 text-right pr-2">${parseFloat(it.rate||0).toFixed(2)}</div>
-                    <div class="w-[6%] p-1 text-center">${it.per||'Nos'}</div>
-                    <div class="w-[12%] p-1 text-right font-bold pr-2">${parseFloat(it.amount||0).toFixed(2)}</div>
+                    <div class="w-[8%] p-1 text-center">${idx + 1}</div>
+                    <div class="w-[42%] p-1 pl-2 font-bold">${it.desc || '---------------------'}</div>
+                    <div class="w-[12%] p-1 text-center">${it.hsn || '-'}</div>
+                    <div class="w-[10%] p-1 text-right pr-2"><b>${it.qty}</b> ${it.per || 'Nos'}</div>
+                    <div class="w-[10%] p-1 text-right pr-2">${parseFloat(it.rate || 0).toFixed(2)}</div>
+                    <div class="w-[6%] p-1 text-center">${it.per || 'Nos'}</div>
+                    <div class="w-[12%] p-1 text-right font-bold pr-2">${parseFloat(it.amount || 0).toFixed(2)}</div>
                 </div>`).join('');
 
+            // ── Tax rows — exact same markup as updatePreview() ──
             const taxRows = `
-                <div class="flex mt-4 font-medium">
+                <div class="flex mt-6 font-medium">
                     <div class="w-[8%] p-1"></div>
-                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">CGST${cgstRate ? ' '+cgstRate+'%':''}</div>
+                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">CGST</div>
                     <div class="w-[12%] p-1"></div>
-                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[10%] p-1 text-right pr-2">${cgstRate > 0 ? cgstRate + '%' : ''}</div>
                     <div class="w-[10%] p-1"></div>
                     <div class="w-[6%] p-1"></div>
                     <div class="w-[12%] p-1 text-right pr-2 font-bold">${cgstAmt.toFixed(2)}</div>
                 </div>
                 <div class="flex font-medium">
                     <div class="w-[8%] p-1"></div>
-                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">SGST${sgstRate ? ' '+sgstRate+'%':''}</div>
+                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">SGST</div>
                     <div class="w-[12%] p-1"></div>
-                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[10%] p-1 text-right pr-2">${sgstRate > 0 ? sgstRate + '%' : ''}</div>
                     <div class="w-[10%] p-1"></div>
                     <div class="w-[6%] p-1"></div>
                     <div class="w-[12%] p-1 text-right pr-2 font-bold">${sgstAmt.toFixed(2)}</div>
                 </div>
-                ${igstAmt > 0 ? `<div class="flex font-medium">
+                ${igstAmt > 0 ? `
+                <div class="flex font-medium">
                     <div class="w-[8%] p-1"></div>
-                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">IGST${igstRate ? ' '+igstRate+'%':''}</div>
+                    <div class="w-[42%] p-1 pl-2 text-right italic font-semibold">IGST</div>
                     <div class="w-[12%] p-1"></div>
-                    <div class="w-[10%] p-1"></div>
+                    <div class="w-[10%] p-1 text-right pr-2">${igstRate > 0 ? igstRate + '%' : ''}</div>
                     <div class="w-[10%] p-1"></div>
                     <div class="w-[6%] p-1"></div>
                     <div class="w-[12%] p-1 text-right pr-2 font-bold">${igstAmt.toFixed(2)}</div>
                 </div>` : ''}`;
 
-            const html = `<!DOCTYPE html><html lang="en"><head>
-                <meta charset="UTF-8"><title>Invoice ${inv.invoiceNo}</title>
-                <script src="https://cdn.tailwindcss.com"><\/script>
-                <style>
-                    *, *::before, *::after { box-sizing: border-box !important; }
-                    .tally-border { border: 1px solid #000 !important; }
-                    .tally-border-b { border-bottom: 1px solid #000 !important; }
-                    .tally-border-t { border-top: 1px solid #000 !important; }
-                    .tally-border-r { border-right: 1px solid #000 !important; }
-                    .tally-border-l { border-left: 1px solid #000 !important; }
-                    @media print {
-                        body { background: white !important; padding: 0 !important; margin: 0 !important; }
-                        @page { size: A4 portrait; margin: 10mm; }
-                        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    }
-                </style>
-            </head><body class="bg-white font-sans">
-            <div style="width:190mm;max-width:190mm;height:277mm;min-height:277mm;margin:0 auto;font-size:10px;display:flex;flex-direction:column;">
-                <div class="tally-border" style="flex:1;display:flex;flex-direction:column;">
-                    <div class="tally-border-b p-2 text-center font-bold text-sm">TAX INVOICE</div>
-                    <div class="tally-border-b flex">
-                        <div class="w-1/2 tally-border-r p-2">
-                            <div class="font-extrabold text-base">${state.company.name}</div>
-                            <div>${state.company.address}</div>
-                            <div>GSTIN: ${state.company.gstin} | State: ${state.company.state} (${state.company.stateCode})</div>
-                            <div>Ph: ${state.company.phone} | ${state.company.email}</div>
-                        </div>
-                        <div class="w-1/2 p-2">
-                            <div><span class="font-bold">Invoice No.: </span>${inv.invoiceNo||'-'}</div>
-                            <div><span class="font-bold">Date: </span>${fmtDate(inv.date)}</div>
-                            <div><span class="font-bold">Challan No.: </span>${inv.challanNo||'-'}</div>
-                        </div>
-                    </div>
-                    <div class="tally-border-b p-2">
-                        <div class="font-bold underline mb-1">Buyer (Billed to)</div>
-                        <div class="font-bold">${inv.buyerName||'-'}</div>
-                        <div>${inv.buyerAddress||''}</div>
-                        <div>GSTIN: ${inv.buyerGstin||'-----------'}</div>
-                        ${inv.buyerPhone ? '<div>Ph: '+inv.buyerPhone+'</div>' : ''}
-                    </div>
-                    <div class="tally-border-b flex font-bold bg-slate-100">
-                        <div class="w-[8%] p-1 text-center tally-border-r">#</div>
-                        <div class="w-[42%] p-1 pl-2 tally-border-r">Description</div>
-                        <div class="w-[12%] p-1 text-center tally-border-r">HSN/SAC</div>
-                        <div class="w-[10%] p-1 text-right pr-2 tally-border-r">Qty</div>
-                        <div class="w-[10%] p-1 text-right pr-2 tally-border-r">Rate</div>
-                        <div class="w-[6%] p-1 text-center tally-border-r">Per</div>
-                        <div class="w-[12%] p-1 text-right pr-2 tally-border-l">Amount</div>
-                    </div>
-                    <div id="items-table-container" style="flex-grow:1;">
-                        ${itemRows}${taxRows}
-                    </div>
-                    <div class="tally-border-b flex font-bold">
-                        <div class="w-[8%] p-1"></div>
-                        <div class="w-[42%] p-1 text-right pr-2">Total</div>
-                        <div class="w-[12%] p-1"></div>
-                        <div class="w-[10%] p-1"></div>
-                        <div class="w-[10%] p-1"></div>
-                        <div class="w-[6%] p-1"></div>
-                        <div class="w-[12%] p-1 text-right pr-2 tally-border-l">₹ ${grandTotal.toFixed(2)}</div>
-                    </div>
-                    <div class="tally-border-b p-2">
-                        <div class="font-bold text-[10px] uppercase text-gray-500">Amount Chargeable (in words)</div>
-                        <div class="font-bold mt-1">${wordsStr}</div>
-                    </div>
-                    <div class="tally-border-b flex">
-                        <div class="w-1/2 tally-border-r p-2">
-                            <div class="font-bold underline mb-1">Declaration</div>
-                            <div class="text-justify text-[9px] leading-tight text-gray-700">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</div>
-                        </div>
-                        <div class="w-1/2 p-2 flex flex-col justify-between">
-                            <div class="text-right font-bold text-[10px]">for ${state.company.name}</div>
-                            <div class="text-right font-bold mt-14 pb-1">Authorised Signatory</div>
-                        </div>
-                    </div>
-                    <div class="text-center py-1 text-[9px] font-semibold text-gray-600">SUBJECT TO MAHARASHTRA JURISDICTION</div>
-                    <div class="text-center pb-1 text-[9px] text-gray-500">This is a Computer Generated Invoice</div>
+            // Buyer address & GSTIN — may come from extended cols or be blank for old records
+            const buyerAddress = inv.buyerAddress || '';
+            const buyerGstin   = inv.buyerGstin   || '-----------';
+            const buyerPhone   = (inv.buyerPhone  || '').trim();
+            const buyerEmail   = (inv.buyerEmail  || '').trim();
+
+            // ── Full popup HTML — mirrors #printable-invoice exactly ──
+            const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice ${inv.invoiceNo || ''}</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box !important; }
+        .tally-border   { border: 1px solid #000000 !important; }
+        .tally-border-b { border-bottom: 1px solid #000000 !important; }
+        .tally-border-t { border-top: 1px solid #000000 !important; }
+        .tally-border-r { border-right: 1px solid #000000 !important; }
+        .tally-border-l { border-left: 1px solid #000000 !important; }
+        @media print {
+            body { background: white !important; padding: 0 !important; margin: 0 !important; overflow: visible !important; display: block !important; }
+            #printable-invoice {
+                position: absolute !important; left: 0 !important; top: 0 !important;
+                width: 190mm !important; max-width: 190mm !important;
+                height: 277mm !important; min-height: 277mm !important; max-height: 277mm !important;
+                margin: 0 auto !important; padding: 0 !important;
+                box-shadow: none !important; background: white !important;
+                page-break-inside: avoid !important;
+                display: flex !important; flex-direction: column !important;
+            }
+            #items-table-container { flex-grow: 1 !important; height: auto !important; }
+            @page { size: A4 portrait; margin: 10mm; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-scheme: light !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans flex items-start justify-center p-6">
+
+<div id="printable-invoice" class="bg-white shadow-xl" style="width:190mm;max-width:190mm;min-height:277mm;height:277mm;max-height:277mm;font-size:10px;display:flex;flex-direction:column;">
+    <div class="tally-border" style="flex:1;display:flex;flex-direction:column;">
+
+        <div class="text-center font-bold text-lg py-1 tally-border-b underline tracking-wider bg-white">TAX INVOICE</div>
+
+        <!-- Company + Invoice meta -->
+        <div class="flex tally-border-b" style="min-height:135px;">
+            <div class="w-1/2 tally-border-r p-2 flex flex-col justify-between">
+                <div>
+                    <div class="font-bold text-sm uppercase">${state.company.name}</div>
+                    <div class="mt-1 font-medium">${state.company.address}</div>
+                    <div class="mt-1 font-medium text-[9px]"><span class="font-bold">Ph:</span> ${state.company.phone} <span class="mx-1">|</span> <span class="font-bold">Email:</span> ${state.company.email}</div>
+                    <div class="font-medium text-[9px]"><span class="font-bold">Web:</span> ${state.company.website}</div>
+                    <div class="mt-1"><span class="font-bold">GSTIN/UIN: </span> ${state.company.gstin}</div>
+                    <div><span class="font-bold">State Name: </span> ${state.company.state}, <span class="font-bold">Code:</span> ${state.company.stateCode}</div>
                 </div>
             </div>
-            <script>window.onload=()=>{ window.print(); }<\/script>
-            </body></html>`;
+            <div class="w-1/2 flex flex-col">
+                <div class="flex tally-border-b flex-1">
+                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Invoice No.</div><div class="font-bold text-xs">${inv.invoiceNo || '-'}</div></div>
+                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Dated</div><div class="font-semibold">${fmtDate(inv.date)}</div></div>
+                </div>
+                <div class="flex tally-border-b flex-1">
+                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Delivery Note</div><div>-</div></div>
+                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Mode/Terms of Payment</div><div>-</div></div>
+                </div>
+                <div class="flex flex-1">
+                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Supplier's Ref.</div><div>-</div></div>
+                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Other Reference(s)</div><div>-</div></div>
+                </div>
+            </div>
+        </div>
 
-            const w = window.open('', '_blank', 'width=900,height=700');
+        <!-- Buyer + Dispatch meta -->
+        <div class="flex tally-border-b" style="min-height:115px;">
+            <div class="w-1/2 tally-border-r p-2 flex flex-col justify-between">
+                <div>
+                    <div class="font-bold text-[9px] uppercase tracking-wide text-gray-500">Buyer (Bill to)</div>
+                    <div class="font-bold text-sm uppercase mt-1">${inv.buyerName || '-----------'}</div>
+                    <div class="mt-1">${buyerAddress}</div>
+                    <div class="mt-2"><span class="font-bold">GSTIN/UIN: </span> ${buyerGstin}</div>
+                    <div><span class="font-bold">State Name: </span> ${state.company.state}, <span class="font-bold">Code:</span> ${state.company.stateCode}</div>
+                    ${(buyerPhone || buyerEmail) ? `<div class="mt-1">${buyerPhone ? '<span class="font-bold">Ph: </span>' + buyerPhone : ''}${buyerEmail ? '<span class="ml-3 font-bold">Email: </span>' + buyerEmail : ''}</div>` : ''}
+                </div>
+            </div>
+            <div class="w-1/2 flex flex-col">
+                <div class="flex tally-border-b flex-1">
+                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Challan No.</div><div class="font-semibold">${inv.challanNo || '-'}</div></div>
+                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Dated</div><div>-</div></div>
+                </div>
+                <div class="flex tally-border-b flex-1">
+                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Dispatch Document No.</div><div>-</div></div>
+                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Delivery Note Date</div><div>-</div></div>
+                </div>
+                <div class="flex flex-1">
+                    <div class="w-1/2 tally-border-r p-1 pl-2"><div class="font-bold">Dispatched through</div><div>-</div></div>
+                    <div class="w-1/2 p-1 pl-2"><div class="font-bold">Destination</div><div>-</div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items table -->
+        <div id="items-table-container" class="tally-border-b flex-grow flex flex-col relative" style="min-height:280px;">
+            <!-- Column divider lines (background layer) -->
+            <div class="absolute top-0 bottom-0 left-0 w-full flex pointer-events-none">
+                <div class="w-[8%] tally-border-r h-full"></div>
+                <div class="w-[42%] tally-border-r h-full"></div>
+                <div class="w-[12%] tally-border-r h-full"></div>
+                <div class="w-[10%] tally-border-r h-full"></div>
+                <div class="w-[10%] tally-border-r h-full"></div>
+                <div class="w-[6%] tally-border-r h-full"></div>
+                <div class="w-[12%] h-full"></div>
+            </div>
+            <!-- Header row -->
+            <div class="w-full flex tally-border-b font-bold text-center z-10 bg-white">
+                <div class="w-[8%] tally-border-r p-1">Sl No.</div>
+                <div class="w-[42%] tally-border-r p-1 text-left pl-2">Description of Goods</div>
+                <div class="w-[12%] tally-border-r p-1">HSN/SAC</div>
+                <div class="w-[10%] tally-border-r p-1">Quantity</div>
+                <div class="w-[10%] tally-border-r p-1">Rate</div>
+                <div class="w-[6%] tally-border-r p-1">per</div>
+                <div class="w-[12%] p-1 text-right pr-2">Amount</div>
+            </div>
+            <!-- Items + Tax rows -->
+            <div class="w-full flex-1 z-10 pt-1 overflow-hidden">
+                ${itemRows}${taxRows}
+            </div>
+        </div>
+
+        <!-- Grand total row -->
+        <div class="flex tally-border-b font-bold bg-white">
+            <div class="w-[8%] p-1"></div>
+            <div class="w-[42%] p-1 text-right pr-2">Total</div>
+            <div class="w-[12%] p-1"></div>
+            <div class="w-[10%] p-1"></div>
+            <div class="w-[10%] p-1"></div>
+            <div class="w-[6%] p-1"></div>
+            <div class="w-[12%] p-1 text-right pr-2 tally-border-l">&#8377; ${grandTotal.toFixed(2)}</div>
+        </div>
+
+        <!-- Amount in words -->
+        <div class="tally-border-b p-2 bg-white">
+            <div class="font-bold text-[10px] uppercase text-gray-500">Amount Chargeable (in words)</div>
+            <div class="font-bold text-[11px] mt-1">${wordsStr}</div>
+        </div>
+
+        <!-- Declaration + Signature -->
+        <div class="tally-border-b flex">
+            <div class="w-1/2 tally-border-r p-2">
+                <div class="font-bold underline mb-1">Declaration</div>
+                <div class="text-justify text-[9px] leading-tight text-gray-700">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</div>
+            </div>
+            <div class="w-1/2 p-2 relative flex flex-col justify-between">
+                <div class="text-right font-bold text-[10px]">for ${state.company.name}</div>
+                <div class="text-right font-bold mt-14 pb-1">Authorised Signatory</div>
+            </div>
+        </div>
+
+        <div class="text-center py-1 text-[9px] font-semibold text-gray-600">SUBJECT TO MAHARASHTRA JURISDICTION</div>
+        <div class="text-center pb-1 text-[9px] text-gray-500">This is a Computer Generated Invoice</div>
+
+    </div>
+</div>
+
+<script>window.onload = () => { window.print(); };<\/script>
+</body>
+</html>`;
+
+            const w = window.open('', '_blank', 'width=960,height=800');
             if (w) { w.document.open(); w.document.write(html); w.document.close(); }
-            else    { showToast('Popup blocked. Please allow popups and try again.', 'error'); }
+            else   { showToast('Popup blocked. Please allow popups and try again.', 'error'); }
         }
     </script>
 </body>
